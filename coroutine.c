@@ -5,28 +5,19 @@
     );
     #define COROUTINE_INC "coroutine.arm.inc"
 #elif defined (__i386__)
-#define PDCO_FORCE_COMPILE
     #define SETSP(x) asm volatile(\
         "movl %0, %%esp \n movl %0, %%ebp" \
         : : "r" (x) \
     );
     #define COROUTINE_INC "coroutine.i386.inc"
 #elif defined (__x86_64__)
-    #define PDCO_FORCE_COMPILE
     #define SETSP(x) asm volatile(\
         "movq %0, %%rsp \n movq %0, %%rbp" \
         : : "r" (x) \
     );
     #define COROUTINE_INC "coroutine.x64.inc"
-#else
-    #error "coroutines not supported on this platform"
 #endif
 
-#if !defined(PDCO_FORCE_COMPILE) && __has_include(COROUTINE_INC)
-    #define PDCO_USE_PRECOMPILED
-#endif
-
-#ifndef PDCO_USE_PRECOMPILED
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -210,7 +201,7 @@ static int pdco_resume_(coroutine_t* nc)
 __attribute__((noinline))
 int pdco_run(pdco_fn_t fn, size_t stacksize)
 {
-    coroutine_t* nc = (coroutine_t*)malloc(sizeof(coroutine_t));
+    register coroutine_t* nc = (coroutine_t*)malloc(sizeof(coroutine_t));
     if (!nc) return -1;
     memset(nc, 0, sizeof(coroutine_t));
     
@@ -314,8 +305,3 @@ int pdco_kill(int co)
         ? 0
         : co;
 }
-
-#else
-    // precompiled versions
-    #include COROUTINE_INC
-#endif
