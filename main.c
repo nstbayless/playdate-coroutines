@@ -14,24 +14,17 @@ volatile int a = 0;
 
 #ifdef TEST_AUTOMATED
 #include <assert.h>
-void test_coroutine(void)
-{
-    a = 1;
-    pdco_yield();
-    a = 1;
-    pdco_yield();
-    a = 1;
-}
-#else
-void test_coroutine(void)
-{
-    a = 1;
-    pdco_yield();
-    a = 2;
-    pdco_yield();
-    a = 3;
-}
 #endif
+
+co_thread test_coroutine(co_thread caller)
+{
+    a = 1;
+    pdco_resume(caller);
+    a = 2;
+    pdco_resume(caller);
+    a = 3;
+    return caller;
+}
 
 #if defined(PLAYDATE) || defined(TARGET_PLAYDATE)
 #include "pd_api.h"
@@ -49,37 +42,14 @@ int main()
     printfln("%s", "Running coroutine test...");
     for (size_t i = 0; i < 3; ++i)
     {
-        int co;
-        switch(co = pdco_run(test_coroutine, 0))
-        {
-        case -1:
-            printfln("%s", "an error occurred launching the coroutine.");
-            break;
-        case 0:
-            printfln("%s", "coroutine run and complete");
-            break;
-        default:
-            printfln("coroutine launched, id %d", co);
-            break;
-        }
-        
+        co_thread * t = create_thread(test_coroutine, 32, 0, 0);
+        resume(t);
         #ifdef TEST_AUTOMATED
-        assert(a == 1);
+        assert(a == i);
         #else
         printfln(" -> the value of a is %d", a);
         #endif
-        
-        while(co > 0)
-        {
-            printfln(" -> %s", "resuming coroutine");
-            co = pdco_resume(co);
-            #ifdef TEST_AUTOMATED
-            assert(a == 1);
-            #else
-            printfln(" -> the value of a is %d", a);
-            #endif
-        }
     }
-    
+    printfln("Completed. The final value of a is %d", a);
 	return 0;
 }

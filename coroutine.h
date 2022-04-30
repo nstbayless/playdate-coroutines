@@ -31,6 +31,23 @@ void pdco_resume(pdco_handle_t h);
 // gets user-defined local value
 void* pdco_ud(pdco_handle_t h);
 
+#ifndef PDCO_NO_KEYWORDS
+// Define keyword aliases
+
+typedef pdco_handle_t co_thread;
+
+co_thread get_thread(void) __attribute__((alias("pdco_current")));
+co_thread create_thread(
+        pdco_fn_t fn,
+        size_t stacksize    PDCO_CPPONLY(=0),
+        void* ud            PDCO_CPPONLY(=NULL),
+        size_t udsize       PDCO_CPPONLY(=0)
+) __attribute__((alias("pdco_create")));
+
+void resume(co_thread h) __attribute__((alias("pdco_resume")));
+
+#endif
+
 #ifdef __cplusplus
 }
 #endif
