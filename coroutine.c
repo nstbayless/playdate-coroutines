@@ -37,7 +37,7 @@ static inline int stack_direction(void)
 
 typedef struct coroutine_t
 {
-    int id;
+    pdco_handle_t id;
     
     // next in linked list
     struct coroutine_t* next;
@@ -51,6 +51,7 @@ typedef struct coroutine_t
     int status; // if this is set to 0, means marked as dirty and should be cleaned up.
     
     // on main thread, these are all left unset.
+    pdco_handle_t creator;
     pdco_fn_t fn;
     size_t stacksize;
     size_t txsize;
@@ -133,7 +134,7 @@ static void pdco_guard(void)
 {
     register pdco_handle_t resume_next;
     asm("");
-    resume_next = pdco_active->fn();
+    resume_next = pdco_active->fn(pdco_active->creator);
     asm("");
     
     // final yield.
@@ -158,7 +159,7 @@ static int pdco_resume_(coroutine_t* nc)
             longjmp(nc->jbalt, 1);
         }
     #else
-        swapcontext(&pre->ucalt, &nc->ucalt);
+        swapcontext(&prev->ucalt, &nc->ucalt);
     #endif    
     
     cleanup_if_complete(pdco_active);
@@ -171,11 +172,11 @@ void pdco_resume(pdco_handle_t h)
     if (pdco_resume_(nc) != 0)
     {
         // crash
-        return pdco_resume_(nc);
+        pdco_resume_(nc);
     }
 }
 
-pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, size_t udsize)
+pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
 {
     register coroutine_t* nc = (coroutine_t*)malloc(sizeof(coroutine_t));
     if (!nc) return -1;
@@ -191,19 +192,18 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, size_t udsize)
     
     nc->stack = NULL;
     if (stacksize == 0) stacksize = 1 << 10;
-    nc->stack = malloc(stacksize + udsize);
+    nc->stack = malloc(stacksize);
     if (!nc->stack)
     {
         free(nc);
         return -1;
     }
-    nc->ud = (udsize > 0) ? ud : NULL;
-    
-    nc->tx = NULL;
+    nc->ud = ud;
     nc->stackstart = getstackstart(nc);
     nc->stacksize = stacksize;
     nc->status = 1; // running
     nc->fn = fn;
+    nc->creator = pdco_active->id;
     
     // assign unique ID
     nc->id = next_coroutine_id++;
@@ -247,9 +247,9 @@ pdco_handle_t pdco_current(void)
     return pdco_active->id;
 }
 
-void* pdco_ud(pdco_handle_t h)
+void** pdco_ud(pdco_handle_t h)
 {
     coroutine_t* c = pdco_active;
-    if (co > 0) c = getco(h);
-    return c->ud;
+    if (h > 0) c = getco(h);
+    return &c->ud;
 }

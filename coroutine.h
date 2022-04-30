@@ -22,15 +22,14 @@ pdco_handle_t pdco_current(void);
 pdco_handle_t pdco_create(
     pdco_fn_t fn,
     size_t stacksize    PDCO_CPPONLY(=0),
-    size_t udsize       PDCO_CPPONLY(=0)
+    void* ud       PDCO_CPPONLY(=NULL)
 );
 
 // crashes if h is invalid or ended
 void pdco_resume(pdco_handle_t h);
 
 // gets user-defined local value
-// main ud is always null
-void* pdco_ud(pdco_handle_t h);
+void** pdco_ud(pdco_handle_t h);
 
 #ifndef PDCO_NO_KEYWORDS
 // Define keyword aliases

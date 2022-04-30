@@ -8,14 +8,6 @@
 
 volatile int a = 0;
 
-#if !defined(PLAYDATE) && !defined(TARGET_PLAYDATE)
-    //#define TEST_AUTOMATED
-#endif
-
-#ifdef TEST_AUTOMATED
-#include <assert.h>
-#endif
-
 co_thread test_coroutine(co_thread caller)
 {
     a = 1;
@@ -44,9 +36,6 @@ int main()
     {
         co_thread * t = create_thread(test_coroutine, 32, 0, 0);
         resume(t);
-        #ifdef TEST_AUTOMATED
-        assert(a == i);
-        #else
         printfln(" -> the value of a is %d", a);
         #endif
     }

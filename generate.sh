@@ -8,7 +8,5 @@ s_to_inc() {
     echo ')");' >> coroutine.$1.inc
 }
 
-rm coroutine.s
-
 echo "building test executable..."
 gcc -g coroutine.c main.c -o coroutine-c-test 
