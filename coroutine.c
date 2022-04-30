@@ -84,7 +84,7 @@ static void delco(int id)
     {
         if (tmp->id == id)
         {
-            ll = &tmp->next;
+            *ll = tmp->next;
             if (tmp->stack)
             {
                 free(tmp->stack);
@@ -133,6 +133,8 @@ static coroutine_t* getco(pdco_handle_t id)
 __attribute__((noinline))
 static void pdco_guard(void)
 {
+    cleanup_if_complete(pdco_prev);
+    
     register pdco_handle_t resume_next;
     asm("");
     resume_next = pdco_active->fn(pdco_active->creator);
