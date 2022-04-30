@@ -42,12 +42,6 @@ typedef struct coroutine_t
     // next in linked list
     struct coroutine_t* next;
     
-    #ifdef USE_SETJMP
-    jmp_buf jbalt;
-    #else // USE_UCONTEXT
-    ucontext_t ucalt;
-    #endif
-    
     int status; // if this is set to 0, means marked as dirty and should be cleaned up.
     
     // on main thread, these are all left unset.
@@ -58,6 +52,12 @@ typedef struct coroutine_t
     void* ud;
     void* stackstart;
     void* stack; // stack followed by user-defined data
+    
+    #ifdef USE_SETJMP
+    jmp_buf jbalt;
+    #else // USE_UCONTEXT
+    ucontext_t ucalt;
+    #endif
 } coroutine_t;
 
 static coroutine_t co_main = {
@@ -72,6 +72,7 @@ static coroutine_t* pdco_first = NULL;
 // Current coroutine
 // It is the caller's responsibility to maintain this.
 static coroutine_t* volatile pdco_active = &co_main;
+static coroutine_t* volatile pdco_prev = NULL;
 static int next_coroutine_id = PDCO_MAIN_ID + 1;
 
 // delete coroutine if it exists and is not main
@@ -83,7 +84,7 @@ static void delco(int id)
     {
         if (tmp->id == id)
         {
-            *ll = tmp->next;
+            ll = &tmp->next;
             if (tmp->stack)
             {
                 free(tmp->stack);
@@ -149,20 +150,20 @@ static int pdco_resume_(coroutine_t* nc)
     // cannot resume active (current) coroutine.
     if (!nc) return -1;
     if (nc == pdco_active) return -1;
-    coroutine_t* prev = pdco_active;
+    pdco_prev = pdco_active;
     pdco_active = nc;
     
     #ifdef USE_SETJMP
         asm("");
-        if (setjmp(prev->jbalt) == 0)
+        if (setjmp(pdco_prev->jbalt) == 0)
         {
             longjmp(nc->jbalt, 1);
         }
     #else
-        swapcontext(&prev->ucalt, &nc->ucalt);
+        swapcontext(&pdco_prev->ucalt, &nc->ucalt);
     #endif    
     
-    cleanup_if_complete(pdco_active);
+    cleanup_if_complete(pdco_prev);
     return 0;
 }
 
@@ -178,7 +179,10 @@ void pdco_resume(pdco_handle_t h)
 
 pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
 {
-    register coroutine_t* nc = (coroutine_t*)malloc(sizeof(coroutine_t));
+    #if TARGET_PLAYDATE
+    register
+    #endif
+    coroutine_t* nc = (coroutine_t*)malloc(sizeof(coroutine_t));
     if (!nc) return -1;
     memset(nc, 0, sizeof(coroutine_t));
     
@@ -252,4 +256,17 @@ void** pdco_ud(pdco_handle_t h)
     coroutine_t* c = pdco_active;
     if (h > 0) c = getco(h);
     return &c->ud;
+}
+
+int pdco_exists(pdco_handle_t h)
+{
+    coroutine_t* c = getco(h);
+    if (c != NULL)
+    {
+        return c->status == 1;
+    }
+    else
+    {
+        return 0;
+    }
 }

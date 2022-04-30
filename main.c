@@ -8,12 +8,20 @@
 
 volatile int a = 0;
 
+__attribute__((noinline))
+int subroutine()
+{
+    a = 10;
+    pdco_resume(PDCO_MAIN_ID);
+}
+
 co_thread test_coroutine(co_thread caller)
 {
     a = 1;
     pdco_resume(caller);
     a = 2;
     pdco_resume(caller);
+    subroutine();
     a = 3;
     return caller;
 }
@@ -32,9 +40,9 @@ int main()
 {
 #endif
     printfln("%s", "Running coroutine test...");
-    for (size_t i = 0; i < 3; ++i)
+    co_thread t = create_thread(test_coroutine, 32, 0);
+    while (thread_exists(t))
     {
-        co_thread * t = create_thread(test_coroutine, 32, 0);
         resume(t);
         printfln(" -> the value of a is %d", a);
     }

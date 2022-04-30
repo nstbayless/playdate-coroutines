@@ -25,6 +25,7 @@ pdco_handle_t pdco_create(
     size_t stacksize    PDCO_CPPONLY(=0),
     void* ud       PDCO_CPPONLY(=NULL)
 );
+int pdco_exists(pdco_handle_t h);
 
 // crashes if h is invalid or ended
 void pdco_resume(pdco_handle_t h);
@@ -37,21 +38,10 @@ void** pdco_ud(pdco_handle_t h);
 
 typedef pdco_handle_t co_thread;
 
-inline co_thread get_thread(void){
-    return pdco_current();
-}
-
-inline co_thread create_thread(
-        pdco_fn_t fn,
-        size_t stacksize    PDCO_CPPONLY(=0),
-        void* ud       PDCO_CPPONLY(=NULL)
-) {
-    return pdco_create(fn, stacksize, ud);
-}
-
-inline void resume(co_thread thread) {
-    return pdco_resume(thread);
-};
+#define get_thread pdco_current
+#define create_thread pdco_create
+#define resume pdco_resume
+#define thread_exists pdco_exists
 
 #endif
 
