@@ -165,9 +165,9 @@ static int pdco_resume_(coroutine_t* nc)
     return 0;
 }
 
-void pdco_resume(int co)
+void pdco_resume(pdco_handle_t h)
 {
-    coroutine_t* nc = getco(co);
+    coroutine_t* nc = getco(h);
     if (pdco_resume_(nc) != 0)
     {
         // crash
