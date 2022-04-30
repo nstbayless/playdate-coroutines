@@ -1,7 +1,3 @@
-#ifndef PDCO_FORCE_COMPILE
-    #define PDCO_FORCE_COMPILE
-#endif
-
 #if defined(__arm__) || defined(__thumb__)
     #define SETSP(x) asm volatile(\
         "mov sp, %0" \
@@ -9,12 +5,14 @@
     );
     #define COROUTINE_INC "coroutine.arm.inc"
 #elif defined (__i386__)
+#define PDCO_FORCE_COMPILE
     #define SETSP(x) asm volatile(\
         "movl %0, %%esp \n movl %0, %%ebp" \
         : : "r" (x) \
     );
     #define COROUTINE_INC "coroutine.i386.inc"
 #elif defined (__x86_64__)
+    #define PDCO_FORCE_COMPILE
     #define SETSP(x) asm volatile(\
         "movq %0, %%rsp \n movq %0, %%rbp" \
         : : "r" (x) \
@@ -35,7 +33,7 @@
 
 #include "coroutine.h"
 
-#if !TARGET_PLAYDATE && __has_include(<ucontext.h>)
+#if __has_include(<ucontext.h>)
     #define USE_UCONTEXT
     #include <ucontext.h>
     #include <assert.h>
@@ -44,7 +42,7 @@
     #include <setjmp.h>
 #endif
 
-#pragma GCC optimize("O0")
+#pragma GCC optimize("O1")
 
 #if defined(__arm__) || defined(__thumb__)
 
@@ -62,7 +60,7 @@ static int stack_direction_helper(int* x)
 }
 
 // returns 1 if stack grows toward positive, -1 if grows toward negative.
-static inline int stack_direction()
+static inline int stack_direction(void)
 {
     int x;
     return stack_direction_helper(&x);
@@ -101,7 +99,7 @@ static int delco(int id)
 {
     coroutine_t** ll = &pdco_first;
     coroutine_t* tmp;
-    while (tmp = *ll)
+    while ((tmp = *ll))
     {
         if (tmp->id == id)
         {
@@ -167,7 +165,7 @@ void pdco_yield(void)
 }
 
 __attribute__((noinline))
-static void pdco_guard()
+static void pdco_guard(void)
 {
     asm("");
     pdco_active->fn();
@@ -179,7 +177,7 @@ static void pdco_guard()
 }
 
 // runs after returning/yielding from the swapped-to context.
-static int resume_epilogue()
+static int resume_epilogue(void)
 {
     coroutine_t* nc = pdco_active;
     pdco_active = nc->yields_to;
@@ -216,6 +214,7 @@ int pdco_run(pdco_fn_t fn, size_t stacksize)
     if (!nc) return -1;
     
     #ifdef USE_UCONTEXT
+        memset(&nc->uccaller, 0, sizeof(ucontext_t));
         if (getcontext(&nc->uccaller) < 0)
         {
             free(nc);
@@ -258,11 +257,14 @@ int pdco_run(pdco_fn_t fn, size_t stacksize)
         nc->ucalt.uc_stack.ss_sp = nc->stackstart; // or should this be nc->stack?
         nc->ucalt.uc_stack.ss_size = nc->stacksize;
         nc->ucalt.uc_link = NULL; // we take care of return ourselves.
+        memset(&nc->ucalt, 0, sizeof(ucontext_t));
+        nc->ucalt.uc_mcontext.fpregs = &nc->ucalt.__fpregs_mem;
+        
         makecontext(&nc->ucalt, pdco_guard, 0);
         
         // there's a bug for some reason in some implementations of makecontext
         // where fpregs is left NULL.
-        if (!nc->ucalt.uc_mcontext.fpregs)
+        if (nc->ucalt.uc_mcontext.fpregs == NULL)
         {
             nc->ucalt.uc_mcontext.fpregs = &nc->ucalt.__fpregs_mem;
         }

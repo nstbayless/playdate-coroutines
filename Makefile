@@ -18,7 +18,7 @@ ifeq ($(SDK),)
 $(error SDK path not found; set ENV value PLAYDATE_SDK_PATH)
 endif
 
-$(shell touch Source)
+$(shell mkdir -p Source)
 $(shell echo 'function playdate.update() end' > Source/main.lua)
 
 # List C source files here

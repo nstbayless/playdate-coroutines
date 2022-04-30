@@ -39,12 +39,14 @@ void test_coroutine(void)
 
 int eventHandler(PlaydateAPI* playdate, PDSystemEvent event, uint32_t arg)
 {
+    printfln("event %d", event);
     if (event != kEventInitLua) return 0;
 #else
 #define printfln(fmt, ...) printf(fmt "\n", __VA_ARGS__)
 int main()
 {
 #endif
+    printfln("%s", "Running coroutine test...");
     for (size_t i = 0; i < 3; ++i)
     {
         int co;
