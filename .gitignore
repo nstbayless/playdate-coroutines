@@ -5,3 +5,7 @@ Source/
 *.pdx
 build/*
 *-test
+.idea*
+PlaydateSDK*
+cmake*
+CMake*

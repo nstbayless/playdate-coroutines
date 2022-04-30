@@ -34,10 +34,9 @@ int main()
     printfln("%s", "Running coroutine test...");
     for (size_t i = 0; i < 3; ++i)
     {
-        co_thread * t = create_thread(test_coroutine, 32, 0, 0);
+        co_thread * t = create_thread(test_coroutine, 32, 0);
         resume(t);
         printfln(" -> the value of a is %d", a);
-        #endif
     }
     printfln("Completed. The final value of a is %d", a);
 	return 0;

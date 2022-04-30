@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ctype.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,15 +37,21 @@ void** pdco_ud(pdco_handle_t h);
 
 typedef pdco_handle_t co_thread;
 
-co_thread get_thread(void) __attribute__((alias("pdco_current")));
-co_thread create_thread(
+inline co_thread get_thread(void){
+    return pdco_current();
+}
+
+inline co_thread create_thread(
         pdco_fn_t fn,
         size_t stacksize    PDCO_CPPONLY(=0),
-        void* ud            PDCO_CPPONLY(=NULL),
-        size_t udsize       PDCO_CPPONLY(=0)
-) __attribute__((alias("pdco_create")));
+        void* ud       PDCO_CPPONLY(=NULL)
+) {
+    return pdco_create(fn, stacksize, ud);
+}
 
-void resume(co_thread h) __attribute__((alias("pdco_resume")));
+inline void resume(co_thread thread) {
+    return pdco_resume(thread);
+};
 
 #endif
 
