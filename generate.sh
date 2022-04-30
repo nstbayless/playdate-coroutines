@@ -8,12 +8,6 @@ s_to_inc() {
     echo ')");' >> coroutine.$1.inc
 }
 
-CFLAGS="-DPDCO_FORCE_COMPILE"
-
-echo "generating assembly for arm..."
-arm-none-eabi-gcc $CFLAGS -S coroutine.c
-s_to_inc arm
-
 rm coroutine.s
 
 echo "building test executable..."
