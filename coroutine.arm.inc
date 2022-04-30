@@ -20,36 +20,27 @@ asm(R"(
 stack_direction_helper:
 	@ Function supports interworking.
 	@ args = 0, pretend = 0, frame = 16
-	@ frame_needed = 0, uses_anonymous_args = 0
+	@ frame_needed = 1, uses_anonymous_args = 0
 	@ link register save eliminated.
-	sub	sp, sp, #16
-	add	r2, sp, #12
-	add	r3, sp, #4
+	str	fp, [sp, #-4]!
+	add	fp, sp, #0
+	sub	sp, sp, #20
+	str	r0, [fp, #-16]
+	sub	r2, fp, #8
+	sub	r3, fp, #16
 	cmp	r2, r3
-	mvncc	r0, #0
-	movcs	r0, #1
-	add	sp, sp, #16
+	bcs	.L2
+	mvn	r3, #0
+	b	.L4
+.L2:
+	mov	r3, #1
+.L4:
+	mov	r0, r3
+	add	sp, fp, #0
 	@ sp needed
+	ldr	fp, [sp], #4
 	bx	lr
 	.size	stack_direction_helper, .-stack_direction_helper
-	.align	2
-	.syntax unified
-	.arm
-	.fpu softvfp
-	.type	stack_direction, %function
-stack_direction:
-	@ Function supports interworking.
-	@ args = 0, pretend = 0, frame = 8
-	@ frame_needed = 0, uses_anonymous_args = 0
-	str	lr, [sp, #-4]!
-	sub	sp, sp, #12
-	add	r0, sp, #4
-	bl	stack_direction_helper
-	add	sp, sp, #12
-	@ sp needed
-	ldr	lr, [sp], #4
-	bx	lr
-	.size	stack_direction, .-stack_direction
 	.bss
 	.align	2
 pdco_first:
@@ -73,28 +64,58 @@ next_coroutine_id:
 	.type	delco, %function
 delco:
 	@ Function supports interworking.
-	@ args = 0, pretend = 0, frame = 0
-	@ frame_needed = 0, uses_anonymous_args = 0
-	mov	r2, r0
-	ldr	r3, .L17
-	ldr	r0, [r3]
-.L8:
-	cmp	r0, #0
-	bxeq	lr
-	ldr	r3, [r0]
-	cmp	r3, r2
-	bne	.L8
-	push	{r4, lr}
-	ldr	r2, [r0, #4]
-	ldr	r3, .L17
+	@ args = 0, pretend = 0, frame = 16
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #16
+	str	r0, [fp, #-16]
+	ldr	r3, .L10
+	str	r3, [fp, #-8]
+	b	.L6
+.L9:
+	ldr	r3, [fp, #-12]
+	ldr	r3, [r3]
+	ldr	r2, [fp, #-16]
+	cmp	r2, r3
+	bne	.L6
+	ldr	r3, [fp, #-12]
+	ldr	r2, [r3, #4]
+	ldr	r3, [fp, #-8]
 	str	r2, [r3]
+	ldr	r3, [fp, #-12]
+	ldr	r3, [r3, #212]
+	cmp	r3, #0
+	beq	.L7
+	ldr	r3, [fp, #-12]
+	ldr	r3, [r3, #212]
+	mov	r0, r3
 	bl	free
-	mov	r0, #1
-	pop	{r4, lr}
+	ldr	r3, [fp, #-12]
+	mov	r2, #0
+	str	r2, [r3, #212]
+.L7:
+	ldr	r0, [fp, #-12]
+	bl	free
+	mov	r3, #1
+	b	.L8
+.L6:
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3]
+	str	r3, [fp, #-12]
+	ldr	r3, [fp, #-12]
+	cmp	r3, #0
+	bne	.L9
+	mov	r3, #0
+.L8:
+	mov	r0, r3
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
 	bx	lr
-.L18:
+.L11:
 	.align	2
-.L17:
+.L10:
 	.word	pdco_first
 	.size	delco, .-delco
 	.align	2
@@ -104,21 +125,30 @@ delco:
 	.type	cleanup_if_complete, %function
 cleanup_if_complete:
 	@ Function supports interworking.
-	@ args = 0, pretend = 0, frame = 0
-	@ frame_needed = 0, uses_anonymous_args = 0
-	push	{r4, lr}
-	ldr	r4, [r0, #12]
-	cmp	r4, #0
-	movne	r4, #1
-	beq	.L23
-.L19:
-	mov	r0, r4
-	pop	{r4, lr}
-	bx	lr
-.L23:
-	ldr	r0, [r0]
+	@ args = 0, pretend = 0, frame = 8
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #8
+	str	r0, [fp, #-8]
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3, #12]
+	cmp	r3, #0
+	bne	.L13
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3]
+	mov	r0, r3
 	bl	delco
-	b	.L19
+	mov	r3, #0
+	b	.L14
+.L13:
+	mov	r3, #1
+.L14:
+	mov	r0, r3
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
 	.size	cleanup_if_complete, .-cleanup_if_complete
 	.align	2
 	.syntax unified
@@ -127,19 +157,23 @@ cleanup_if_complete:
 	.type	getstackstart, %function
 getstackstart:
 	@ Function supports interworking.
-	@ args = 0, pretend = 0, frame = 0
-	@ frame_needed = 0, uses_anonymous_args = 0
-	push	{r4, lr}
-	mov	r4, r0
-	bl	stack_direction
-	cmp	r0, #1
-	ldreq	r0, [r4, #208]
-	addeq	r0, r0, #48
-	ldrne	r0, [r4, #204]
-	subne	r3, r0, #48
-	ldrne	r0, [r4, #208]
-	addne	r0, r0, r3
-	pop	{r4, lr}
+	@ args = 0, pretend = 0, frame = 8
+	@ frame_needed = 1, uses_anonymous_args = 0
+	@ link register save eliminated.
+	str	fp, [sp, #-4]!
+	add	fp, sp, #0
+	sub	sp, sp, #12
+	str	r0, [fp, #-8]
+	ldr	r3, [fp, #-8]
+	ldr	r2, [r3, #212]
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3, #208]
+	lsr	r3, r3, #1
+	add	r3, r2, r3
+	mov	r0, r3
+	add	sp, fp, #0
+	@ sp needed
+	ldr	fp, [sp], #4
 	bx	lr
 	.size	getstackstart, .-getstackstart
 	.align	2
@@ -149,156 +183,42 @@ getstackstart:
 	.type	getco, %function
 getco:
 	@ Function supports interworking.
-	@ args = 0, pretend = 0, frame = 0
-	@ frame_needed = 0, uses_anonymous_args = 0
+	@ args = 0, pretend = 0, frame = 16
+	@ frame_needed = 1, uses_anonymous_args = 0
 	@ link register save eliminated.
-	mov	r2, r0
-	ldr	r3, .L34
-	ldr	r0, [r3]
-	cmp	r0, #0
-	bxeq	lr
-.L29:
-	ldr	r3, [r0]
-	cmp	r3, r2
-	bxeq	lr
-	ldr	r0, [r0, #4]
-	cmp	r0, #0
-	bne	.L29
+	str	fp, [sp, #-4]!
+	add	fp, sp, #0
+	sub	sp, sp, #20
+	str	r0, [fp, #-16]
+	ldr	r3, .L22
+	ldr	r3, [r3]
+	str	r3, [fp, #-8]
+	b	.L18
+.L20:
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3, #4]
+	str	r3, [fp, #-8]
+.L18:
+	ldr	r3, [fp, #-8]
+	cmp	r3, #0
+	beq	.L19
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3]
+	ldr	r2, [fp, #-16]
+	cmp	r2, r3
+	bne	.L20
+.L19:
+	ldr	r3, [fp, #-8]
+	mov	r0, r3
+	add	sp, fp, #0
+	@ sp needed
+	ldr	fp, [sp], #4
 	bx	lr
-.L35:
+.L23:
 	.align	2
-.L34:
+.L22:
 	.word	pdco_first
 	.size	getco, .-getco
-	.align	2
-	.global	pdco_run
-	.syntax unified
-	.arm
-	.fpu softvfp
-	.type	pdco_run, %function
-pdco_run:
-	@ Function supports interworking.
-	@ args = 0, pretend = 0, frame = 16
-	@ frame_needed = 0, uses_anonymous_args = 0
-	push	{r4, r5, r6, r7, lr}
-	sub	sp, sp, #20
-	mov	r6, r0
-	mov	r4, r1
-	mov	r5, r2
-	str	r3, [sp, #8]
-	mov	r0, #220
-	bl	malloc
-	subs	r7, r0, #0
-	str	r7, [sp, #4]
-	beq	.L44
-	cmp	r4, #0
-	moveq	r4, #16384
-	mov	r0, r4
-	bl	malloc
-	str	r0, [r7, #208]
-	cmp	r0, #0
-	beq	.L46
-	ldr	r7, [sp, #4]
-	mov	r0, r7
-	bl	getstackstart
-	str	r0, [r7, #212]
-	mov	r3, #1
-	str	r3, [r7, #12]
-	ldr	r3, .L49
-	ldr	r3, [r3]
-	str	r3, [r7, #8]
-	str	r4, [r7, #204]
-	ldr	r3, .L49+4
-	ldr	r3, [r3]
-	str	r3, [r7, #4]
-	ldr	r2, .L49+8
-	ldr	r3, [r2]
-	add	r1, r3, #1
-	str	r1, [r2]
-	str	r3, [r7]
-	str	r6, [r7, #16]
-	str	r5, [r7, #216]
-	add	r3, r7, #112
-	str	r3, [sp, #12]
-	mov	r0, r3
-	bl	setjmp
-	cmp	r0, #0
-	bne	.L47
-	ldr	r1, [sp, #4]
-	ldr	r2, [r1, #8]
-	ldr	r3, .L49
-	str	r2, [r3]
-	ldr	r3, .L49+4
-	str	r1, [r3]
-	add	r0, r1, #20
-	bl	setjmp
-	cmp	r0, #0
-	beq	.L48
-	ldr	r1, [sp, #4]
-	ldr	r2, [r1, #8]
-	ldr	r3, .L49
-	str	r2, [r3]
-	ldr	r2, [sp, #8]
-	cmp	r2, #0
-	ldrne	r3, [r1, #216]
-	strne	r3, [r2]
-	ldr	r4, [sp, #4]
-	mov	r0, r4
-	bl	cleanup_if_complete
-	cmp	r0, #0
-	ldrne	r0, [r4]
-.L36:
-	add	sp, sp, #20
-	@ sp needed
-	pop	{r4, r5, r6, r7, lr}
-	bx	lr
-.L46:
-	ldr	r0, [sp, #4]
-	bl	free
-	mvn	r0, #0
-	b	.L36
-.L47:
-	ldr	r3, [sp, #4]
-	ldr	r3, [r3, #212]
-	.syntax divided
-@ 160 "coroutine.c" 1
-	mov sp, r3
-@ 0 "" 2
-	.arm
-	.syntax unified
-	ldr	r4, .L49
-	ldr	r3, [r4]
-	ldr	r2, [r4]
-	ldr	r5, [r4]
-	ldr	r3, [r3, #16]
-	ldr	r0, [r2, #216]
-	mov	lr, pc
-	bx	r3
-	str	r0, [r5, #216]
-	ldr	r3, [r4]
-	mov	r2, #0
-	str	r2, [r3, #12]
-	ldr	r0, [r4]
-	mov	r1, #1
-	add	r0, r0, #20
-	bl	longjmp
-.L48:
-	ldr	r3, .L49
-	ldr	r2, [sp, #4]
-	str	r2, [r3]
-	mov	r1, #1
-	ldr	r0, [sp, #12]
-	bl	longjmp
-.L44:
-	mvn	r0, #0
-	b	.L36
-.L50:
-	.align	2
-.L49:
-	.word	pdco_active
-	.word	pdco_first
-	.word	next_coroutine_id
-	.size	pdco_run, .-pdco_run
 	.align	2
 	.global	pdco_yield
 	.syntax unified
@@ -308,32 +228,351 @@ pdco_run:
 pdco_yield:
 	@ Function supports interworking.
 	@ args = 0, pretend = 0, frame = 0
-	@ frame_needed = 0, uses_anonymous_args = 0
-	push	{r4, lr}
-	ldr	r3, .L56
-	ldr	r2, [r3]
-	str	r0, [r2, #216]
-	ldr	r0, [r3]
-	add	r0, r0, #112
-	bl	setjmp
-	cmp	r0, #0
-	beq	.L55
-	ldr	r3, .L56
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	ldr	r3, .L28
 	ldr	r3, [r3]
-	ldr	r0, [r3, #216]
-	pop	{r4, lr}
-	bx	lr
-.L55:
-	ldr	r3, .L56
-	ldr	r0, [r3]
+	add	r3, r3, #116
+	mov	r0, r3
+	bl	setjmp
+	mov	r3, r0
+	cmp	r3, #0
+	bne	.L27
+	ldr	r3, .L28
+	ldr	r3, [r3]
+	add	r3, r3, #24
 	mov	r1, #1
-	add	r0, r0, #20
+	mov	r0, r3
 	bl	longjmp
-.L57:
+.L27:
+	nop
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
+.L29:
 	.align	2
-.L56:
+.L28:
 	.word	pdco_active
 	.size	pdco_yield, .-pdco_yield
+	.align	2
+	.syntax unified
+	.arm
+	.fpu softvfp
+	.type	pdco_guard, %function
+pdco_guard:
+	@ Function supports interworking.
+	@ args = 0, pretend = 0, frame = 0
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	ldr	r3, .L31
+	ldr	r3, [r3]
+	ldr	r3, [r3, #20]
+	mov	lr, pc
+	bx	r3
+	ldr	r3, .L31
+	ldr	r3, [r3]
+	mov	r2, #0
+	str	r2, [r3, #12]
+	bl	pdco_yield
+	nop
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
+.L32:
+	.align	2
+.L31:
+	.word	pdco_active
+	.size	pdco_guard, .-pdco_guard
+	.align	2
+	.syntax unified
+	.arm
+	.fpu softvfp
+	.type	resume_epilogue, %function
+resume_epilogue:
+	@ Function supports interworking.
+	@ args = 0, pretend = 0, frame = 8
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #8
+	ldr	r3, .L37
+	ldr	r3, [r3]
+	str	r3, [fp, #-8]
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3, #8]
+	ldr	r2, .L37
+	str	r3, [r2]
+	ldr	r0, [fp, #-8]
+	bl	cleanup_if_complete
+	mov	r3, r0
+	cmp	r3, #0
+	beq	.L34
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3]
+	b	.L36
+.L34:
+	mov	r3, #0
+.L36:
+	mov	r0, r3
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
+.L38:
+	.align	2
+.L37:
+	.word	pdco_active
+	.size	resume_epilogue, .-resume_epilogue
+	.align	2
+	.syntax unified
+	.arm
+	.fpu softvfp
+	.type	pdco_resume_, %function
+pdco_resume_:
+	@ Function supports interworking.
+	@ args = 0, pretend = 0, frame = 8
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #8
+	str	r0, [fp, #-8]
+	ldr	r3, [fp, #-8]
+	cmp	r3, #0
+	bne	.L40
+	mvn	r3, #0
+	b	.L41
+.L40:
+	ldr	r3, .L45
+	ldr	r3, [r3]
+	ldr	r2, [fp, #-8]
+	cmp	r2, r3
+	bne	.L42
+	mvn	r3, #0
+	b	.L41
+.L42:
+	ldr	r3, .L45
+	ldr	r2, [r3]
+	ldr	r3, [fp, #-8]
+	str	r2, [r3, #8]
+	ldr	r2, .L45
+	ldr	r3, [fp, #-8]
+	str	r3, [r2]
+	ldr	r3, [fp, #-8]
+	add	r3, r3, #24
+	mov	r0, r3
+	bl	setjmp
+	mov	r3, r0
+	cmp	r3, #0
+	bne	.L44
+	ldr	r3, [fp, #-8]
+	add	r3, r3, #116
+	mov	r1, #1
+	mov	r0, r3
+	bl	longjmp
+.L44:
+	bl	resume_epilogue
+	mov	r3, r0
+.L41:
+	mov	r0, r3
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
+.L46:
+	.align	2
+.L45:
+	.word	pdco_active
+	.size	pdco_resume_, .-pdco_resume_
+	.align	2
+	.global	pdco_run
+	.syntax unified
+	.arm
+	.fpu softvfp
+	.type	pdco_run, %function
+pdco_run:
+	@ Function supports interworking.
+	@ args = 0, pretend = 0, frame = 16
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #16
+	str	r0, [fp, #-16]
+	str	r1, [fp, #-20]
+	mov	r0, #220
+	bl	malloc
+	mov	r3, r0
+	str	r3, [fp, #-8]
+	ldr	r3, [fp, #-8]
+	cmp	r3, #0
+	bne	.L48
+	mvn	r3, #0
+	b	.L49
+.L48:
+	ldr	r3, [fp, #-8]
+	mov	r2, #0
+	str	r2, [r3, #212]
+	ldr	r3, [fp, #-20]
+	cmp	r3, #0
+	bne	.L50
+	mov	r3, #1024
+	str	r3, [fp, #-20]
+.L50:
+	ldr	r0, [fp, #-20]
+	bl	malloc
+	mov	r3, r0
+	mov	r2, r3
+	ldr	r3, [fp, #-8]
+	str	r2, [r3, #212]
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3, #212]
+	cmp	r3, #0
+	bne	.L51
+	ldr	r0, [fp, #-8]
+	bl	free
+	mvn	r3, #0
+	b	.L49
+.L51:
+	ldr	r0, [fp, #-8]
+	bl	getstackstart
+	mov	r2, r0
+	ldr	r3, [fp, #-8]
+	str	r2, [r3, #216]
+	ldr	r3, [fp, #-8]
+	ldr	r2, [fp, #-20]
+	str	r2, [r3, #208]
+	ldr	r3, [fp, #-8]
+	mov	r2, #1
+	str	r2, [r3, #12]
+	ldr	r3, .L54
+	ldr	r2, [r3]
+	ldr	r3, [fp, #-8]
+	str	r2, [r3, #4]
+	ldr	r2, .L54
+	ldr	r3, [fp, #-8]
+	str	r3, [r2]
+	ldr	r3, .L54+4
+	ldr	r3, [r3]
+	add	r2, r3, #1
+	ldr	r1, .L54+4
+	str	r2, [r1]
+	ldr	r2, [fp, #-8]
+	str	r3, [r2]
+	ldr	r3, [fp, #-8]
+	ldr	r2, [fp, #-16]
+	str	r2, [r3, #20]
+	ldr	r3, [fp, #-8]
+	add	r3, r3, #116
+	mov	r0, r3
+	bl	setjmp
+	mov	r3, r0
+	cmp	r3, #0
+	beq	.L53
+	ldr	r3, [fp, #-8]
+	ldr	r3, [r3, #216]
+	.syntax divided
+@ 252 "coroutine.c" 1
+	mov sp, r3
+@ 0 "" 2
+	.arm
+	.syntax unified
+	bl	pdco_guard
+.L53:
+	ldr	r0, [fp, #-8]
+	bl	pdco_resume_
+	mov	r3, r0
+.L49:
+	mov	r0, r3
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
+.L55:
+	.align	2
+.L54:
+	.word	pdco_first
+	.word	next_coroutine_id
+	.size	pdco_run, .-pdco_run
+	.align	2
+	.global	pdco_get_coroutine
+	.syntax unified
+	.arm
+	.fpu softvfp
+	.type	pdco_get_coroutine, %function
+pdco_get_coroutine:
+	@ Function supports interworking.
+	@ args = 0, pretend = 0, frame = 0
+	@ frame_needed = 1, uses_anonymous_args = 0
+	@ link register save eliminated.
+	str	fp, [sp, #-4]!
+	add	fp, sp, #0
+	ldr	r3, .L59
+	ldr	r3, [r3]
+	cmp	r3, #0
+	bne	.L57
+	mov	r3, #0
+	b	.L58
+.L57:
+	ldr	r3, .L59
+	ldr	r3, [r3]
+	ldr	r3, [r3]
+.L58:
+	mov	r0, r3
+	add	sp, fp, #0
+	@ sp needed
+	ldr	fp, [sp], #4
+	bx	lr
+.L60:
+	.align	2
+.L59:
+	.word	pdco_active
+	.size	pdco_get_coroutine, .-pdco_get_coroutine
+	.align	2
+	.global	pdco_ud
+	.syntax unified
+	.arm
+	.fpu softvfp
+	.type	pdco_ud, %function
+pdco_ud:
+	@ Function supports interworking.
+	@ args = 0, pretend = 0, frame = 16
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #16
+	str	r0, [fp, #-16]
+	ldr	r3, .L65
+	ldr	r3, [r3]
+	str	r3, [fp, #-8]
+	ldr	r3, [fp, #-16]
+	cmp	r3, #0
+	ble	.L62
+	ldr	r0, [fp, #-16]
+	bl	getco
+	str	r0, [fp, #-8]
+.L62:
+	ldr	r3, [fp, #-8]
+	cmp	r3, #0
+	beq	.L63
+	ldr	r3, [fp, #-8]
+	add	r3, r3, #16
+	b	.L64
+.L63:
+	mov	r3, #0
+.L64:
+	mov	r0, r3
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
+.L66:
+	.align	2
+.L65:
+	.word	pdco_active
+	.size	pdco_ud, .-pdco_ud
 	.align	2
 	.global	pdco_resume
 	.syntax unified
@@ -343,62 +582,22 @@ pdco_yield:
 pdco_resume:
 	@ Function supports interworking.
 	@ args = 0, pretend = 0, frame = 8
-	@ frame_needed = 0, uses_anonymous_args = 0
-	push	{r4, lr}
-	sub	sp, sp, #8
-	mov	r4, r1
-	str	r2, [sp, #4]
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{r4, fp, lr}
+	add	fp, sp, #8
+	sub	sp, sp, #12
+	str	r0, [fp, #-16]
+	ldr	r0, [fp, #-16]
 	bl	getco
-	subs	r2, r0, #0
-	str	r2, [sp]
-	beq	.L63
-	ldr	r3, .L67
-	ldr	r3, [r3]
-	cmp	r3, r2
-	beq	.L64
-	ldr	r3, .L67
-	ldr	r3, [r3]
-	str	r3, [r2, #8]
-	str	r4, [r2, #216]
-	add	r0, r2, #20
-	bl	setjmp
-	cmp	r0, #0
-	beq	.L66
-	ldr	r1, [sp]
-	ldr	r2, [r1, #8]
-	ldr	r3, .L67
-	str	r2, [r3]
-	ldr	r2, [sp, #4]
-	cmp	r2, #0
-	ldrne	r3, [r1, #216]
-	strne	r3, [r2]
-	ldr	r4, [sp]
+	mov	r4, r0
 	mov	r0, r4
-	bl	cleanup_if_complete
-	cmp	r0, #0
-	ldrne	r0, [r4]
-.L58:
-	add	sp, sp, #8
+	bl	pdco_resume_
+	mov	r3, r0
+	mov	r0, r3
+	sub	sp, fp, #8
 	@ sp needed
-	pop	{r4, lr}
+	pop	{r4, fp, lr}
 	bx	lr
-.L66:
-	ldr	r3, .L67
-	ldr	r2, [sp]
-	str	r2, [r3]
-	mov	r1, #1
-	add	r0, r2, #112
-	bl	longjmp
-.L63:
-	mvn	r0, #0
-	b	.L58
-.L64:
-	mvn	r0, #0
-	b	.L58
-.L68:
-	.align	2
-.L67:
-	.word	pdco_active
 	.size	pdco_resume, .-pdco_resume
 	.align	2
 	.global	pdco_kill
@@ -408,34 +607,43 @@ pdco_resume:
 	.type	pdco_kill, %function
 pdco_kill:
 	@ Function supports interworking.
-	@ args = 0, pretend = 0, frame = 0
-	@ frame_needed = 0, uses_anonymous_args = 0
-	push	{r4, lr}
-	mov	r4, r0
-	ldr	r3, .L75
+	@ args = 0, pretend = 0, frame = 8
+	@ frame_needed = 1, uses_anonymous_args = 0
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #8
+	str	r0, [fp, #-8]
+	ldr	r3, .L74
 	ldr	r3, [r3]
 	cmp	r3, #0
 	beq	.L70
-	ldr	r3, .L75
+	ldr	r3, .L74
 	ldr	r3, [r3]
 	ldr	r3, [r3]
-	cmp	r3, r0
-	beq	.L72
+	ldr	r2, [fp, #-8]
+	cmp	r2, r3
+	bne	.L70
+	mvn	r3, #0
+	b	.L71
 .L70:
-	mov	r0, r4
+	ldr	r0, [fp, #-8]
 	bl	delco
-	cmp	r0, #0
-	moveq	r0, r4
-	movne	r0, #0
-.L69:
-	pop	{r4, lr}
-	bx	lr
+	mov	r3, r0
+	cmp	r3, #0
+	bne	.L72
+	ldr	r3, [fp, #-8]
+	b	.L71
 .L72:
-	mvn	r0, #0
-	b	.L69
-.L76:
-	.align	2
+	mov	r3, #0
+.L71:
+	mov	r0, r3
+	sub	sp, fp, #4
+	@ sp needed
+	pop	{fp, lr}
+	bx	lr
 .L75:
+	.align	2
+.L74:
 	.word	pdco_active
 	.size	pdco_kill, .-pdco_kill
 	.ident	"GCC: (15:9-2019-q4-0ubuntu1) 9.2.1 20191025 (release) [ARM/arm-9-branch revision 277599]"

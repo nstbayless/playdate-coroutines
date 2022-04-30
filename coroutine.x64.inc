@@ -6,60 +6,36 @@ stack_direction_helper:
 .LFB6:
 	.cfi_startproc
 	endbr64
-	subq	$40, %rsp
-	.cfi_def_cfa_offset 48
-	movq	%rdi, 8(%rsp)
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$32, %rsp
+	movq	%rdi, -24(%rbp)
 	movq	%fs:40, %rax
-	movq	%rax, 24(%rsp)
+	movq	%rax, -8(%rbp)
 	xorl	%eax, %eax
-	leaq	20(%rsp), %rdx
-	leaq	8(%rsp), %rax
+	leaq	-12(%rbp), %rdx
+	leaq	-24(%rbp), %rax
 	cmpq	%rax, %rdx
-	sbbl	%eax, %eax
-	orl	$1, %eax
-	movq	24(%rsp), %rcx
+	jnb	.L2
+	movl	$-1, %eax
+	jmp	.L4
+.L2:
+	movl	$1, %eax
+.L4:
+	movq	-8(%rbp), %rcx
 	xorq	%fs:40, %rcx
-	jne	.L6
-	addq	$40, %rsp
-	.cfi_remember_state
-	.cfi_def_cfa_offset 8
-	ret
-.L6:
-	.cfi_restore_state
+	je	.L5
 	call	__stack_chk_fail@PLT
+.L5:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
 	.cfi_endproc
 .LFE6:
 	.size	stack_direction_helper, .-stack_direction_helper
-	.type	stack_direction, @function
-stack_direction:
-.LFB7:
-	.cfi_startproc
-	pushq	%rbx
-	.cfi_def_cfa_offset 16
-	.cfi_offset 3, -16
-	subq	$16, %rsp
-	.cfi_def_cfa_offset 32
-	movl	$40, %ebx
-	movq	%fs:(%rbx), %rax
-	movq	%rax, 8(%rsp)
-	xorl	%eax, %eax
-	leaq	4(%rsp), %rdi
-	call	stack_direction_helper
-	movq	8(%rsp), %rdx
-	xorq	%fs:(%rbx), %rdx
-	jne	.L10
-	addq	$16, %rsp
-	.cfi_remember_state
-	.cfi_def_cfa_offset 16
-	popq	%rbx
-	.cfi_def_cfa_offset 8
-	ret
-.L10:
-	.cfi_restore_state
-	call	__stack_chk_fail@PLT
-	.cfi_endproc
-.LFE7:
-	.size	stack_direction, .-stack_direction
 	.local	pdco_first
 	.comm	pdco_first,8,8
 	.local	pdco_active
@@ -76,24 +52,51 @@ delco:
 .LFB8:
 	.cfi_startproc
 	endbr64
-	movl	%edi, %eax
-	movq	pdco_first(%rip), %rdi
-.L12:
-	testq	%rdi, %rdi
-	je	.L20
-	cmpl	%eax, (%rdi)
-	jne	.L12
-	subq	$8, %rsp
+	pushq	%rbp
 	.cfi_def_cfa_offset 16
-	movq	8(%rdi), %rax
-	movq	%rax, pdco_first(%rip)
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$32, %rsp
+	movl	%edi, -20(%rbp)
+	leaq	pdco_first(%rip), %rax
+	movq	%rax, -16(%rbp)
+	jmp	.L7
+.L10:
+	movq	-8(%rbp), %rax
+	movl	(%rax), %eax
+	cmpl	%eax, -20(%rbp)
+	jne	.L7
+	movq	-8(%rbp), %rax
+	movq	8(%rax), %rdx
+	movq	-16(%rbp), %rax
+	movq	%rdx, (%rax)
+	movq	-8(%rbp), %rax
+	movq	1992(%rax), %rax
+	testq	%rax, %rax
+	je	.L8
+	movq	-8(%rbp), %rax
+	movq	1992(%rax), %rax
+	movq	%rax, %rdi
+	call	free@PLT
+	movq	-8(%rbp), %rax
+	movq	$0, 1992(%rax)
+.L8:
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
 	call	free@PLT
 	movl	$1, %eax
-	addq	$8, %rsp
-	.cfi_def_cfa_offset 8
-	ret
-.L20:
+	jmp	.L9
+.L7:
+	movq	-16(%rbp), %rax
+	movq	(%rax), %rax
+	movq	%rax, -8(%rbp)
+	cmpq	$0, -8(%rbp)
+	jne	.L10
 	movl	$0, %eax
+.L9:
+	leave
+	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
 .LFE8:
@@ -102,24 +105,29 @@ delco:
 cleanup_if_complete:
 .LFB9:
 	.cfi_startproc
-	pushq	%rbx
+	pushq	%rbp
 	.cfi_def_cfa_offset 16
-	.cfi_offset 3, -16
-	movl	24(%rdi), %ebx
-	testl	%ebx, %ebx
-	je	.L25
-	movl	$1, %ebx
-.L21:
-	movl	%ebx, %eax
-	popq	%rbx
-	.cfi_remember_state
-	.cfi_def_cfa_offset 8
-	ret
-.L25:
-	.cfi_restore_state
-	movl	(%rdi), %edi
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$16, %rsp
+	movq	%rdi, -8(%rbp)
+	movq	-8(%rbp), %rax
+	movl	24(%rax), %eax
+	testl	%eax, %eax
+	jne	.L12
+	movq	-8(%rbp), %rax
+	movl	(%rax), %eax
+	movl	%eax, %edi
 	call	delco
-	jmp	.L21
+	movl	$0, %eax
+	jmp	.L13
+.L12:
+	movl	$1, %eax
+.L13:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
 	.cfi_endproc
 .LFE9:
 	.size	cleanup_if_complete, .-cleanup_if_complete
@@ -127,27 +135,21 @@ cleanup_if_complete:
 getstackstart:
 .LFB10:
 	.cfi_startproc
-	pushq	%rbx
+	pushq	%rbp
 	.cfi_def_cfa_offset 16
-	.cfi_offset 3, -16
-	movq	%rdi, %rbx
-	movl	$0, %eax
-	call	stack_direction
-	cmpl	$1, %eax
-	je	.L30
-	movq	440(%rbx), %rax
-	movq	448(%rbx), %rdx
-	leaq	-48(%rdx,%rax), %rax
-.L26:
-	popq	%rbx
-	.cfi_remember_state
-	.cfi_def_cfa_offset 8
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	movq	%rdi, -8(%rbp)
+	movq	-8(%rbp), %rax
+	movq	1992(%rax), %rdx
+	movq	-8(%rbp), %rax
+	movq	1984(%rax), %rax
+	shrq	%rax
+	addq	%rdx, %rax
+	popq	%rbp
+	.cfi_def_cfa 7, 8
 	ret
-.L30:
-	.cfi_restore_state
-	movq	448(%rbx), %rax
-	addq	$48, %rax
-	jmp	.L26
 	.cfi_endproc
 .LFE10:
 	.size	getstackstart, .-getstackstart
@@ -156,286 +158,406 @@ getco:
 .LFB11:
 	.cfi_startproc
 	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	movl	%edi, -20(%rbp)
 	movq	pdco_first(%rip), %rax
-	testq	%rax, %rax
-	je	.L36
-.L32:
-	cmpl	%edi, (%rax)
-	je	.L31
+	movq	%rax, -8(%rbp)
+	jmp	.L17
+.L19:
+	movq	-8(%rbp), %rax
 	movq	8(%rax), %rax
-	testq	%rax, %rax
-	jne	.L32
-.L31:
-	ret
-.L36:
+	movq	%rax, -8(%rbp)
+.L17:
+	cmpq	$0, -8(%rbp)
+	je	.L18
+	movq	-8(%rbp), %rax
+	movl	(%rax), %eax
+	cmpl	%eax, -20(%rbp)
+	jne	.L19
+.L18:
+	movq	-8(%rbp), %rax
+	popq	%rbp
+	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
 .LFE11:
 	.size	getco, .-getco
-	.globl	pdco_run
-	.type	pdco_run, @function
-pdco_run:
-.LFB12:
-	.cfi_startproc
-	endbr64
-	pushq	%r14
-	.cfi_def_cfa_offset 16
-	.cfi_offset 14, -16
-	pushq	%r12
-	.cfi_def_cfa_offset 24
-	.cfi_offset 12, -24
-	pushq	%rbp
-	.cfi_def_cfa_offset 32
-	.cfi_offset 6, -32
-	pushq	%rbx
-	.cfi_def_cfa_offset 40
-	.cfi_offset 3, -40
-	subq	$40, %rsp
-	.cfi_def_cfa_offset 80
-	movq	%rdi, %r12
-	movq	%rsi, %rbx
-	movq	%rdx, %rbp
-	movq	%rcx, 16(%rsp)
-	movl	$472, %edi
-	call	malloc@PLT
-	movq	%rax, 8(%rsp)
-	testq	%rax, %rax
-	je	.L45
-	movq	%rax, %r14
-	testq	%rbx, %rbx
-	movl	$16384, %eax
-	cmove	%rax, %rbx
-	movq	%rbx, %rdi
-	call	malloc@PLT
-	movq	%rax, 448(%r14)
-	testq	%rax, %rax
-	je	.L47
-	movq	8(%rsp), %r14
-	movq	%r14, %rdi
-	call	getstackstart
-	movq	%rax, 456(%r14)
-	movl	$1, 24(%r14)
-	movq	pdco_active(%rip), %rax
-	movq	%rax, 16(%r14)
-	movq	%rbx, 440(%r14)
-	movq	pdco_first(%rip), %rax
-	movq	%rax, 8(%r14)
-	movl	next_coroutine_id(%rip), %eax
-	leal	1(%rax), %edx
-	movl	%edx, next_coroutine_id(%rip)
-	movl	%eax, (%r14)
-	movq	%r12, 32(%r14)
-	movq	%rbp, 464(%r14)
-	leaq	240(%r14), %rax
-	movq	%rax, 24(%rsp)
-	movq	%rax, %rdi
-	call	_setjmp@PLT
-	endbr64
-	testl	%eax, %eax
-	jne	.L48
-	movq	8(%rsp), %rsi
-	movq	16(%rsi), %rax
-	movq	%rax, pdco_active(%rip)
-	movq	%rsi, pdco_first(%rip)
-	leaq	40(%rsi), %rdi
-	call	_setjmp@PLT
-	endbr64
-	testl	%eax, %eax
-	je	.L49
-	movq	8(%rsp), %rbx
-	movq	16(%rbx), %rax
-	movq	%rax, pdco_active(%rip)
-	movq	16(%rsp), %rdx
-	testq	%rdx, %rdx
-	je	.L44
-	movq	464(%rbx), %rax
-	movq	%rax, (%rdx)
-.L44:
-	movq	8(%rsp), %rbx
-	movq	%rbx, %rdi
-	call	cleanup_if_complete
-	testl	%eax, %eax
-	je	.L37
-	movl	(%rbx), %eax
-.L37:
-	addq	$40, %rsp
-	.cfi_remember_state
-	.cfi_def_cfa_offset 40
-	popq	%rbx
-	.cfi_def_cfa_offset 32
-	popq	%rbp
-	.cfi_def_cfa_offset 24
-	popq	%r12
-	.cfi_def_cfa_offset 16
-	popq	%r14
-	.cfi_def_cfa_offset 8
-	ret
-.L47:
-	.cfi_restore_state
-	movq	8(%rsp), %rdi
-	call	free@PLT
-	movl	$-1, %eax
-	jmp	.L37
-.L48:
-	movq	8(%rsp), %rax
-	movq	456(%rax), %rax
-	movq %rax, %rsp 
- movq %rax, %rbp
-	movq	pdco_active(%rip), %rax
-	movq	pdco_active(%rip), %rdx
-	movq	pdco_active(%rip), %rbx
-	movq	464(%rdx), %rdi
-	call	*32(%rax)
-	movq	%rax, 464(%rbx)
-	movq	pdco_active(%rip), %rax
-	movl	$0, 24(%rax)
-	movq	pdco_active(%rip), %rdi
-	addq	$40, %rdi
-	movl	$1, %esi
-	call	longjmp@PLT
-.L49:
-	movq	8(%rsp), %rax
-	movq	%rax, pdco_active(%rip)
-	movl	$1, %esi
-	movq	24(%rsp), %rdi
-	call	longjmp@PLT
-.L45:
-	movl	$-1, %eax
-	jmp	.L37
-	.cfi_endproc
-.LFE12:
-	.size	pdco_run, .-pdco_run
 	.globl	pdco_yield
 	.type	pdco_yield, @function
 pdco_yield:
+.LFB12:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	movq	pdco_active(%rip), %rax
+	leaq	48(%rax), %rdx
+	movq	pdco_active(%rip), %rax
+	addq	$1016, %rax
+	movq	%rdx, %rsi
+	movq	%rax, %rdi
+	call	swapcontext@PLT
+	endbr64
+	nop
+	popq	%rbp
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE12:
+	.size	pdco_yield, .-pdco_yield
+	.type	pdco_guard, @function
+pdco_guard:
 .LFB13:
 	.cfi_startproc
 	endbr64
-	subq	$8, %rsp
+	pushq	%rbp
 	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
 	movq	pdco_active(%rip), %rax
-	movq	%rdi, 464(%rax)
-	movq	pdco_active(%rip), %rdi
-	addq	$240, %rdi
-	call	_setjmp@PLT
-	endbr64
-	testl	%eax, %eax
-	je	.L54
+	movq	40(%rax), %rax
+	call	*%rax
 	movq	pdco_active(%rip), %rax
-	movq	464(%rax), %rax
-	addq	$8, %rsp
-	.cfi_remember_state
-	.cfi_def_cfa_offset 8
+	movl	$0, 24(%rax)
+	call	pdco_yield
+	nop
+	popq	%rbp
+	.cfi_def_cfa 7, 8
 	ret
-.L54:
-	.cfi_restore_state
-	movq	pdco_active(%rip), %rdi
-	addq	$40, %rdi
-	movl	$1, %esi
-	call	longjmp@PLT
 	.cfi_endproc
 .LFE13:
-	.size	pdco_yield, .-pdco_yield
-	.globl	pdco_resume
-	.type	pdco_resume, @function
-pdco_resume:
+	.size	pdco_guard, .-pdco_guard
+	.type	resume_epilogue, @function
+resume_epilogue:
 .LFB14:
 	.cfi_startproc
 	endbr64
-	pushq	%rbx
+	pushq	%rbp
 	.cfi_def_cfa_offset 16
-	.cfi_offset 3, -16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
 	subq	$16, %rsp
-	.cfi_def_cfa_offset 32
-	movq	%rsi, %rbx
-	movq	%rdx, 8(%rsp)
-	call	getco
-	movq	%rax, (%rsp)
-	testq	%rax, %rax
-	je	.L60
-	movq	%rax, %rcx
 	movq	pdco_active(%rip), %rax
-	cmpq	%rcx, %rax
-	je	.L61
-	movq	pdco_active(%rip), %rax
-	movq	%rax, 16(%rcx)
-	movq	%rbx, 464(%rcx)
-	leaq	40(%rcx), %rdi
-	call	_setjmp@PLT
-	endbr64
-	testl	%eax, %eax
-	je	.L63
-	movq	(%rsp), %rbx
-	movq	16(%rbx), %rax
+	movq	%rax, -8(%rbp)
+	movq	-8(%rbp), %rax
+	movq	16(%rax), %rax
 	movq	%rax, pdco_active(%rip)
-	movq	8(%rsp), %rdx
-	testq	%rdx, %rdx
-	je	.L59
-	movq	464(%rbx), %rax
-	movq	%rax, (%rdx)
-.L59:
-	movq	(%rsp), %rbx
-	movq	%rbx, %rdi
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
 	call	cleanup_if_complete
 	testl	%eax, %eax
-	je	.L55
-	movl	(%rbx), %eax
-.L55:
-	addq	$16, %rsp
-	.cfi_remember_state
-	.cfi_def_cfa_offset 16
-	popq	%rbx
-	.cfi_def_cfa_offset 8
+	je	.L24
+	movq	-8(%rbp), %rax
+	movl	(%rax), %eax
+	jmp	.L26
+.L24:
+	movl	$0, %eax
+.L26:
+	leave
+	.cfi_def_cfa 7, 8
 	ret
-.L63:
-	.cfi_restore_state
-	movq	(%rsp), %rax
-	movq	%rax, pdco_active(%rip)
-	leaq	240(%rax), %rdi
-	movl	$1, %esi
-	call	longjmp@PLT
-.L60:
-	movl	$-1, %eax
-	jmp	.L55
-.L61:
-	movl	$-1, %eax
-	jmp	.L55
 	.cfi_endproc
 .LFE14:
+	.size	resume_epilogue, .-resume_epilogue
+	.type	pdco_resume_, @function
+pdco_resume_:
+.LFB15:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$16, %rsp
+	movq	%rdi, -8(%rbp)
+	cmpq	$0, -8(%rbp)
+	jne	.L28
+	movl	$-1, %eax
+	jmp	.L29
+.L28:
+	movq	pdco_active(%rip), %rax
+	cmpq	%rax, -8(%rbp)
+	jne	.L30
+	movl	$-1, %eax
+	jmp	.L29
+.L30:
+	movq	pdco_active(%rip), %rdx
+	movq	-8(%rbp), %rax
+	movq	%rdx, 16(%rax)
+	movq	-8(%rbp), %rax
+	movq	%rax, pdco_active(%rip)
+	movq	-8(%rbp), %rax
+	leaq	1016(%rax), %rdx
+	movq	-8(%rbp), %rax
+	addq	$48, %rax
+	movq	%rdx, %rsi
+	movq	%rax, %rdi
+	call	swapcontext@PLT
+	endbr64
+	movl	$0, %eax
+	call	resume_epilogue
+.L29:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE15:
+	.size	pdco_resume_, .-pdco_resume_
+	.globl	pdco_run
+	.type	pdco_run, @function
+pdco_run:
+.LFB16:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$32, %rsp
+	movq	%rdi, -24(%rbp)
+	movq	%rsi, -32(%rbp)
+	movl	$2008, %edi
+	call	malloc@PLT
+	movq	%rax, -8(%rbp)
+	cmpq	$0, -8(%rbp)
+	jne	.L32
+	movl	$-1, %eax
+	jmp	.L33
+.L32:
+	movq	-8(%rbp), %rax
+	addq	$48, %rax
+	movq	%rax, %rdi
+	call	getcontext@PLT
+	endbr64
+	testl	%eax, %eax
+	jns	.L35
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
+	call	free@PLT
+	movl	$-1, %eax
+	jmp	.L33
+.L35:
+	movq	-8(%rbp), %rax
+	movq	$0, 1992(%rax)
+	cmpq	$0, -32(%rbp)
+	jne	.L36
+	movq	$1024, -32(%rbp)
+.L36:
+	movq	-32(%rbp), %rax
+	movq	%rax, %rdi
+	call	malloc@PLT
+	movq	%rax, %rdx
+	movq	-8(%rbp), %rax
+	movq	%rdx, 1992(%rax)
+	movq	-8(%rbp), %rax
+	movq	1992(%rax), %rax
+	testq	%rax, %rax
+	jne	.L37
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
+	call	free@PLT
+	movl	$-1, %eax
+	jmp	.L33
+.L37:
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
+	call	getstackstart
+	movq	-8(%rbp), %rdx
+	movq	%rax, 2000(%rdx)
+	movq	-8(%rbp), %rax
+	movq	-32(%rbp), %rdx
+	movq	%rdx, 1984(%rax)
+	movq	-8(%rbp), %rax
+	movl	$1, 24(%rax)
+	movq	pdco_first(%rip), %rdx
+	movq	-8(%rbp), %rax
+	movq	%rdx, 8(%rax)
+	movq	-8(%rbp), %rax
+	movq	%rax, pdco_first(%rip)
+	movl	next_coroutine_id(%rip), %eax
+	leal	1(%rax), %edx
+	movl	%edx, next_coroutine_id(%rip)
+	movq	-8(%rbp), %rdx
+	movl	%eax, (%rdx)
+	movq	-8(%rbp), %rax
+	movq	-24(%rbp), %rdx
+	movq	%rdx, 40(%rax)
+	movq	-8(%rbp), %rax
+	movq	2000(%rax), %rdx
+	movq	-8(%rbp), %rax
+	movq	%rdx, 1032(%rax)
+	movq	-8(%rbp), %rax
+	movq	1984(%rax), %rdx
+	movq	-8(%rbp), %rax
+	movq	%rdx, 1048(%rax)
+	movq	-8(%rbp), %rax
+	movq	$0, 1024(%rax)
+	movq	-8(%rbp), %rax
+	addq	$1016, %rax
+	movl	$0, %edx
+	leaq	pdco_guard(%rip), %rsi
+	movq	%rax, %rdi
+	movl	$0, %eax
+	call	makecontext@PLT
+	movq	-8(%rbp), %rax
+	movq	1240(%rax), %rax
+	testq	%rax, %rax
+	jne	.L38
+	movq	-8(%rbp), %rax
+	leaq	1440(%rax), %rdx
+	movq	-8(%rbp), %rax
+	movq	%rdx, 1240(%rax)
+.L38:
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
+	call	pdco_resume_
+.L33:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE16:
+	.size	pdco_run, .-pdco_run
+	.globl	pdco_get_coroutine
+	.type	pdco_get_coroutine, @function
+pdco_get_coroutine:
+.LFB17:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	movq	pdco_active(%rip), %rax
+	testq	%rax, %rax
+	jne	.L40
+	movl	$0, %eax
+	jmp	.L41
+.L40:
+	movq	pdco_active(%rip), %rax
+	movl	(%rax), %eax
+.L41:
+	popq	%rbp
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE17:
+	.size	pdco_get_coroutine, .-pdco_get_coroutine
+	.globl	pdco_ud
+	.type	pdco_ud, @function
+pdco_ud:
+.LFB18:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$24, %rsp
+	movl	%edi, -20(%rbp)
+	movq	pdco_active(%rip), %rax
+	movq	%rax, -8(%rbp)
+	cmpl	$0, -20(%rbp)
+	jle	.L43
+	movl	-20(%rbp), %eax
+	movl	%eax, %edi
+	call	getco
+	movq	%rax, -8(%rbp)
+.L43:
+	cmpq	$0, -8(%rbp)
+	je	.L44
+	movq	-8(%rbp), %rax
+	addq	$32, %rax
+	jmp	.L45
+.L44:
+	movl	$0, %eax
+.L45:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE18:
+	.size	pdco_ud, .-pdco_ud
+	.globl	pdco_resume
+	.type	pdco_resume, @function
+pdco_resume:
+.LFB19:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	pushq	%rbx
+	subq	$24, %rsp
+	.cfi_offset 3, -24
+	movl	%edi, -20(%rbp)
+	movl	-20(%rbp), %eax
+	movl	%eax, %edi
+	call	getco
+	movq	%rax, %rbx
+	movq	%rbx, %rdi
+	call	pdco_resume_
+	addq	$24, %rsp
+	popq	%rbx
+	popq	%rbp
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE19:
 	.size	pdco_resume, .-pdco_resume
 	.globl	pdco_kill
 	.type	pdco_kill, @function
 pdco_kill:
-.LFB15:
+.LFB20:
 	.cfi_startproc
 	endbr64
-	pushq	%rbx
+	pushq	%rbp
 	.cfi_def_cfa_offset 16
-	.cfi_offset 3, -16
-	movl	%edi, %ebx
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$16, %rsp
+	movl	%edi, -4(%rbp)
 	movq	pdco_active(%rip), %rax
 	testq	%rax, %rax
-	je	.L65
+	je	.L49
 	movq	pdco_active(%rip), %rax
-	cmpl	%edi, (%rax)
-	je	.L67
-.L65:
-	movl	%ebx, %edi
+	movl	(%rax), %eax
+	cmpl	%eax, -4(%rbp)
+	jne	.L49
+	movl	$-1, %eax
+	jmp	.L50
+.L49:
+	movl	-4(%rbp), %eax
+	movl	%eax, %edi
 	call	delco
 	testl	%eax, %eax
+	jne	.L51
+	movl	-4(%rbp), %eax
+	jmp	.L50
+.L51:
 	movl	$0, %eax
-	cmove	%ebx, %eax
-.L64:
-	popq	%rbx
-	.cfi_remember_state
-	.cfi_def_cfa_offset 8
+.L50:
+	leave
+	.cfi_def_cfa 7, 8
 	ret
-.L67:
-	.cfi_restore_state
-	movl	$-1, %eax
-	jmp	.L64
 	.cfi_endproc
-.LFE15:
+.LFE20:
 	.size	pdco_kill, .-pdco_kill
 	.ident	"GCC: (Ubuntu 9.3.0-17ubuntu1~20.04) 9.3.0"
 	.section	.note.GNU-stack,"",@progbits

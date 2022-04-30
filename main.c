@@ -8,16 +8,30 @@
 
 volatile int a = 0;
 
-void* test_coroutine(void* v)
+#if !defined(PLAYDATE) && !defined(TARGET_PLAYDATE)
+    //#define TEST_AUTOMATED
+#endif
+
+#ifdef TEST_AUTOMATED
+#include <assert.h>
+void test_coroutine(void)
 {
-    uintptr_t s = v;
-    a = s;
-    v = pdco_yield(1);
-    a = ((uintptr_t)v) * s * s;
-    v = pdco_yield(2);
-    a = ((uintptr_t)v) * s * s * s;
-    return (uintptr_t)3;
+    a = 1;
+    pdco_yield();
+    a = 1;
+    pdco_yield();
+    a = 1;
 }
+#else
+void test_coroutine(void)
+{
+    a = 1;
+    pdco_yield();
+    a = 2;
+    pdco_yield();
+    a = 3;
+}
+#endif
 
 #if defined(PLAYDATE) || defined(TARGET_PLAYDATE)
 #include "pd_api.h"
@@ -31,12 +45,10 @@ int eventHandler(PlaydateAPI* playdate, PDSystemEvent event, uint32_t arg)
 int main()
 {
 #endif
-    uintptr_t rv = 0;
     for (size_t i = 0; i < 3; ++i)
     {
-        uintptr_t powerbase = (i == 2) ? 10 : i + 1;
         int co;
-        switch(co = pdco_run(test_coroutine, 0, powerbase, &rv))
+        switch(co = pdco_run(test_coroutine, 0))
         {
         case -1:
             printfln("%s", "an error occurred launching the coroutine.");
@@ -49,15 +61,21 @@ int main()
             break;
         }
         
+        #ifdef TEST_AUTOMATED
+        assert(a == 1);
+        #else
         printfln(" -> the value of a is %d", a);
-        printfln(" -> the value of rv is %d", (int)rv);
+        #endif
         
         while(co > 0)
         {
             printfln(" -> %s", "resuming coroutine");
-            co = pdco_resume(co, 5, &rv);
+            co = pdco_resume(co);
+            #ifdef TEST_AUTOMATED
+            assert(a == 1);
+            #else
             printfln(" -> the value of a is %d", a);
-            printfln(" -> the value of rv is %d", (int)rv);
+            #endif
         }
     }
     
