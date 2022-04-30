@@ -29,6 +29,7 @@ pdco_handle_t pdco_create(
 void pdco_resume(pdco_handle_t h);
 
 // gets user-defined local value
+// main ud is always null
 void* pdco_ud(pdco_handle_t h);
 
 #ifdef __cplusplus
