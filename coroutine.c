@@ -214,7 +214,6 @@ int pdco_run(pdco_fn_t fn, size_t stacksize)
     if (!nc) return -1;
     
     #ifdef USE_UCONTEXT
-        memset(&nc->uccaller, 0, sizeof(ucontext_t));
         if (getcontext(&nc->uccaller) < 0)
         {
             free(nc);
@@ -257,9 +256,6 @@ int pdco_run(pdco_fn_t fn, size_t stacksize)
         nc->ucalt.uc_stack.ss_sp = nc->stackstart; // or should this be nc->stack?
         nc->ucalt.uc_stack.ss_size = nc->stacksize;
         nc->ucalt.uc_link = NULL; // we take care of return ourselves.
-        memset(&nc->ucalt, 0, sizeof(ucontext_t));
-        nc->ucalt.uc_mcontext.fpregs = &nc->ucalt.__fpregs_mem;
-        
         makecontext(&nc->ucalt, pdco_guard, 0);
         
         // there's a bug for some reason in some implementations of makecontext

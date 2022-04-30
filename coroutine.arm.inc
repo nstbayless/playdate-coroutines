@@ -346,7 +346,7 @@ pdco_run:
 	ldr	r3, [sp, #4]
 	ldr	r3, [r3, #216]
 	.syntax divided
-@ 251 "coroutine.c" 1
+@ 250 "coroutine.c" 1
 	mov sp, r3
 @ 0 "" 2
 	.arm
