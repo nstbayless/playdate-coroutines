@@ -301,6 +301,10 @@ pdco_run:
 	subs	r6, r0, #0
 	str	r6, [sp, #4]
 	beq	.L61
+	mov	r2, #220
+	mov	r1, #0
+	mov	r0, r6
+	bl	memset
 	cmp	r4, #0
 	moveq	r4, #1024
 	mov	r0, r4
@@ -308,8 +312,10 @@ pdco_run:
 	str	r0, [r6, #212]
 	cmp	r0, #0
 	beq	.L63
+	mov	r3, #0
 	ldr	r6, [sp, #4]
 	mov	r0, r6
+	str	r3, [r6, #16]
 	bl	getstackstart
 	str	r0, [r6, #216]
 	str	r4, [r6, #208]
@@ -346,7 +352,7 @@ pdco_run:
 	ldr	r3, [sp, #4]
 	ldr	r3, [r3, #216]
 	.syntax divided
-@ 250 "coroutine.c" 1
+@ 252 "coroutine.c" 1
 	mov sp, r3
 @ 0 "" 2
 	.arm

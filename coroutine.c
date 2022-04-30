@@ -212,6 +212,7 @@ int pdco_run(pdco_fn_t fn, size_t stacksize)
 {
     coroutine_t* nc = (coroutine_t*)malloc(sizeof(coroutine_t));
     if (!nc) return -1;
+    memset(nc, 0, sizeof(coroutine_t));
     
     #ifdef USE_UCONTEXT
         if (getcontext(&nc->uccaller) < 0)
@@ -232,6 +233,7 @@ int pdco_run(pdco_fn_t fn, size_t stacksize)
         return -1;
     }
     
+    nc->tx = NULL;
     nc->stackstart = getstackstart(nc);
     nc->stacksize = stacksize;
     nc->status = 1; // running
