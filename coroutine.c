@@ -43,7 +43,6 @@ typedef struct coroutine_t
     struct coroutine_t* next;
     
     #ifdef USE_SETJMP
-    pdco_fn_t fn;
     jmp_buf jbalt;
     #else // USE_UCONTEXT
     ucontext_t ucalt;
@@ -51,7 +50,8 @@ typedef struct coroutine_t
     
     int status; // if this is set to 0, means marked as dirty and should be cleaned up.
     
-    // on main thread, these are all left null.
+    // on main thread, these are all left unset.
+    pdco_fn_t fn;
     size_t stacksize;
     size_t txsize;
     void* ud;
@@ -203,10 +203,15 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, size_t udsize)
     nc->stackstart = getstackstart(nc);
     nc->stacksize = stacksize;
     nc->status = 1; // running
+    nc->fn = fn;
+    
+    // assign unique ID
+    nc->id = next_coroutine_id++;
+    while (getco(nc->id)) nc->id = next_coroutine_id++;
+    
+    // attach to linked list
     nc->next = pdco_first;
     pdco_first = nc;
-    nc->id = next_coroutine_id++;
-    nc->fn = fn;
     
     #ifdef USE_SETJMP
         asm("");
