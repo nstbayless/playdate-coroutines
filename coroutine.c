@@ -56,9 +56,7 @@ typedef struct coroutine_t
     #ifdef USE_SETJMP
     jmp_buf jbalt;
     #else // USE_UCONTEXT
-    char canary[32];
     ucontext_t ucalt;
-    char canary2[32];
     #endif
 } coroutine_t;
 
