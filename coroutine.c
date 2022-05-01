@@ -56,7 +56,9 @@ typedef struct coroutine_t
     #ifdef USE_SETJMP
     jmp_buf jbalt;
     #else // USE_UCONTEXT
+    char canary[32];
     ucontext_t ucalt;
+    char canary2[32];
     #endif
 } coroutine_t;
 
@@ -142,7 +144,7 @@ static void pdco_guard(void)
     
     // final yield.
     pdco_active->status = 0; // mark thread as dirty / clean up
-    pdco_resume(resume_next); // after resuming, this thread will clean us up.
+    pdco_yield(resume_next); // after resuming, this thread will clean us up.
 }
 
 // returns -1 if failure.
@@ -169,7 +171,7 @@ static int pdco_resume_(coroutine_t* nc)
     return 0;
 }
 
-void pdco_resume(pdco_handle_t h)
+void pdco_yield(pdco_handle_t h)
 {
     coroutine_t* nc = getco(h);
     if (pdco_resume_(nc) != 0)
@@ -181,7 +183,7 @@ void pdco_resume(pdco_handle_t h)
 
 pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
 {
-    #if TARGET_PLAYDATE
+    #if defined(__arm__) || defined(__clang__)
     register
     #endif
     coroutine_t* nc = (coroutine_t*)malloc(sizeof(coroutine_t));
