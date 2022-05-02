@@ -27,8 +27,10 @@ pdco_handle_t pdco_create(
 );
 int pdco_exists(pdco_handle_t h);
 
-// crashes if h is invalid or ended
-void pdco_yield(pdco_handle_t h);
+// pauses execution on this thread and resumes execution on h
+// crashes if h is invalid or ended 
+// returns thread that yields to this thread
+pdco_handle_t pdco_yield(pdco_handle_t h);
 
 // gets user-defined local value
 void** pdco_ud(pdco_handle_t h);

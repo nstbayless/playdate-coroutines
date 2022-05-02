@@ -31,15 +31,15 @@ Returns the id of the current thread.
 int pdco_exists(pdco_handle_t)
 ```
 
-Returns true iff the given thread id points to a thread which exists and has not yet returned.
+Returns `true` (`1`) iff the given thread id points to a thread which exists and has not yet returned.
 
 ### `pdco_yield`
 
 ```C
-void pdco_yield(pdco_handle_t)
+pdco_handle_t pdco_yield(pdco_handle_t)
 ```
 
-Pauses execution in the current thread and resumes execution in the given thread. Execution in the current thread will remain paused until such time as another thread explicitly yields control back here, at which point `yield` will return.
+Pauses execution in the current thread and resumes execution in the given thread. Execution in the current thread will remain paused until such time as another thread explicitly yields control back here, at which point `yield` will return the id of the thread which yielded back here. Note that this id may refer to a thread that has just returned (i.e. permanently finished).
 
 ### `pdco_ud`
 

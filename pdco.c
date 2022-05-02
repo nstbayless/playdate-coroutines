@@ -229,6 +229,8 @@ static void pdco_guard(void)
     pdco_yield(resume_next); // after resuming, the next thread will clean us up.
 }
 
+static int prev_id;
+
 // returns -1 if failure.
 __attribute__((noinline))
 static int pdco_resume_(coroutine_t* nc)
@@ -249,11 +251,12 @@ static int pdco_resume_(coroutine_t* nc)
         swapcontext(&pdco_prev->ucalt, &nc->ucalt);
     #endif    
     
+    prev_id = pdco_prev->id;
     cleanup_if_complete(pdco_prev);
     return 0;
 }
 
-void pdco_yield(pdco_handle_t h)
+pdco_handle_t pdco_yield(pdco_handle_t h)
 {
     coroutine_t* nc = getco(h);
     #ifndef NDEBUG
@@ -269,6 +272,8 @@ void pdco_yield(pdco_handle_t h)
         // causes crash
         pdco_resume_(nc);
     }
+    
+    return prev_id;
 }
 
 pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
