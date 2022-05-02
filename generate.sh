@@ -9,4 +9,4 @@ s_to_inc() {
 }
 
 echo "building test executable..."
-gcc -g coroutine.c main.c -o coroutine-test 
+gcc -g pdco.c main.c -o coroutine-test 

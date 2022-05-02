@@ -22,7 +22,7 @@ $(shell mkdir -p Source)
 $(shell echo 'function playdate.update() end' > Source/main.lua)
 
 # List C source files here
-SRC += coroutine.c main.c
+SRC += pdco.c main.c
 
 # List all user directories here
 UINCDIR += $(SELF_DIR)/mini3d-plus

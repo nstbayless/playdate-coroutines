@@ -14,7 +14,7 @@
 #include <stdio.h>
 #endif
 
-#include "coroutine.h"
+#include "pdco.h"
 
 #if __has_include(<ucontext.h>)
     #define USE_UCONTEXT
@@ -293,7 +293,7 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
     #endif
     
     nc->stack = NULL;
-    if (stacksize == 0) stacksize = 1 << 10;
+    if (stacksize == 0) stacksize = 1 << 16;
     nc->stacksize = stacksize;
     nc->stack = malloc(stacksize);
     if (!nc->stack)

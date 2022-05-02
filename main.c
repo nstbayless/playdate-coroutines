@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "coroutine.h"
+#include "pdco.h"
 
 #pragma GCC diagnostic ignored "-Wint-conversion"
 #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
@@ -9,18 +9,18 @@
 volatile int a = 0;
 
 __attribute__((noinline))
-int subroutine()
+void subroutine(void)
 {
     a = 10;
-    yield(PDCO_MAIN_ID);
+    pdco_yield(PDCO_MAIN_ID);
 }
 
-co_thread test_coroutine(co_thread caller)
+pdco_handle_t test_coroutine(pdco_handle_t caller)
 {
     a = 1;
-    yield(caller);
+    pdco_yield(caller);
     a = 2;
-    yield(caller);
+    pdco_yield(caller);
     subroutine();
     a = 3;
     return caller;
@@ -40,10 +40,10 @@ int main()
 {
 #endif
     printfln("%s", "Running coroutine test...");
-    co_thread t = create_thread(test_coroutine, 1024, NULL);
-    while (thread_exists(t))
+    pdco_handle_t t = pdco_create(test_coroutine, 1024, NULL);
+    while (pdco_exists(t))
     {
-        yield(t);
+        pdco_yield(t);
         printfln(" -> the value of a is %d", a);
     }
     printfln("Completed. The final value of a is %d", a);

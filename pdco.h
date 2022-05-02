@@ -33,33 +33,6 @@ void pdco_yield(pdco_handle_t h);
 // gets user-defined local value
 void** pdco_ud(pdco_handle_t h);
 
-#ifndef PDCO_NO_KEYWORDS
-// Define keyword aliases
-
-typedef pdco_handle_t co_thread;
-
-static inline co_thread get_thread(void){
-    return pdco_current();
-}
-
-static inline co_thread create_thread(
-        pdco_fn_t fn,
-        size_t stacksize    PDCO_CPPONLY(=0),
-        void* ud            PDCO_CPPONLY(=NULL)
-) {
-    return pdco_create(fn, stacksize, ud);
-}
-
-static inline void yield(co_thread thread) {
-    return pdco_yield(thread);
-};
-
-static inline int thread_exists(co_thread thread) {
-    return pdco_exists(thread);
-}
-
-#endif
-
 #ifdef __cplusplus
 }
 #endif
