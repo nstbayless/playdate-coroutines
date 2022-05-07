@@ -140,7 +140,7 @@ static inline void* getstackstart(coroutine_t* co)
     #endif
     
     // !! FIXME !!
-    return co->stack + co->stacksize / 2;
+    // return co->stack + co->stacksize / 2;
     
     return (stack_direction() == 1)
         ? co->stack + STACKMARGIN
@@ -372,8 +372,10 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
     #endif
     nc->ud = ud;
     nc->stackstart = getstackstart(nc);
+    #if !defined(TARGET_PLAYDATE) || defined(NEWLIB_COMPLETE)
     assert(nc->stackstart >= nc->stack);
     assert(nc->stackstart <= nc->stack + nc->stacksize);
+    #endif
     nc->status = 1; // running
     nc->fn = fn;
     nc->creator = pdco_active->id;
