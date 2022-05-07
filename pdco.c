@@ -5,6 +5,8 @@
     );
 #endif
 
+#define _GNU_SOURCE
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -172,32 +174,69 @@ static int canaryok(coroutine_t* co)
 static void canarycheck(coroutine_t* co)
 {
     #if !defined(TARGET_PLAYDATE) || defined(NEWLIB_COMPLETE)
+    int error = 0;
     switch (canaryok(co))
     {
     case 0:
         canary_context = "";
-        return;
+        break;
     case 1:
         printf("PDCO ERROR: coroutine is null (id %d) %s\n", co->id, canary_context);
+        error = 1;
         break;
     case 2:
         printf("PDCO ERROR: canary C1 died (id %d) %s\n", co->id, canary_context);
+        error = 1;
         break;
     case 3:
         printf("PDCO ERROR: canary C2 died (id %d) %s\n", co->id, canary_context);
+        error = 1;
         break;
     case 4:
         printf("PDCO ERROR: canary S1 died (id %d) %s\n", co->id, canary_context);
+        error = 1;
         break;
     case 5:
         printf("PDCO ERROR: canary S2 died (id %d) %s\n", co->id, canary_context);
+        error = 1;
         break;
     default:
         printf("PDCO ERROR: unknown canary error (id %d) %s\n", co->id, canary_context);
+        error = 1;
         break;
     }
     
-    assert(0);
+    #if defined(__x86_64__) && defined(USE_UCONTEXT)
+    gregset_t greg;
+    void* rsp = *(void**)&(co->ucalt.uc_mcontext.gregs[REG_RSP]);
+    if (rsp)
+    {
+        if (rsp < co->stack || rsp >= co->stack + co->stacksize)
+        {
+            printf(
+                "PDCO ERROR: stack pointer out of bounds, is %p but stack is %p to %p\n",
+                rsp, co->stack, co->stack + co->stacksize
+            );
+            if (rsp < co->stack)
+            {
+                printf(
+                    "Note: stack size is 0x%lx bytes, and rsp is below the bottom of the stack by 0x%x bytes\n",
+                    co->stacksize, (uintptr_t)(co->stack - rsp)
+                );
+            }
+            else
+            {
+                printf(
+                    "Note: stack size is 0x%lx bytes, and rsp is above the top of the stack by 0x%x bytes\n",
+                    co->stacksize, (uintptr_t)(rsp - (co->stack + co->stacksize))
+                );
+            }
+            error = 1;
+        }
+    }
+    #endif
+    
+    assert(!error);
     #endif
 }
 #endif
@@ -241,6 +280,8 @@ static int pdco_resume_(coroutine_t* nc)
     pdco_prev = pdco_active;
     pdco_active = nc;
     
+    canarycheck(pdco_active);
+    
     #ifdef USE_SETJMP
         asm("");
         if (setjmp(pdco_prev->jbalt) == 0)
@@ -250,6 +291,8 @@ static int pdco_resume_(coroutine_t* nc)
     #else
         swapcontext(&pdco_prev->ucalt, &nc->ucalt);
     #endif    
+    
+    canarycheck(pdco_active);
     
     prev_id = pdco_prev->id;
     cleanup_if_complete(pdco_prev);
