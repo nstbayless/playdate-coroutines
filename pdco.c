@@ -63,6 +63,7 @@ typedef struct coroutine_t
     
     // on main thread, these are all left unset.
     pdco_handle_t creator;
+    int has_started;
     pdco_fn_t fn;
     size_t stacksize;
     size_t txsize;
@@ -134,6 +135,10 @@ static inline void cleanup_if_complete(coroutine_t* co)
 
 static inline void* getstackstart(coroutine_t* co)
 {
+    #ifdef USE_UCONTEXT
+    return co->stack + STACKMARGIN;
+    #endif
+    
     // !! FIXME !!
     return co->stack + co->stacksize / 2;
     
@@ -174,11 +179,12 @@ static int canaryok(coroutine_t* co)
 static void canarycheck(coroutine_t* co)
 {
     #if !defined(TARGET_PLAYDATE) || defined(NEWLIB_COMPLETE)
+    if (co == &co_main) return;
+    
     int error = 0;
     switch (canaryok(co))
     {
     case 0:
-        canary_context = "";
         break;
     case 1:
         printf("PDCO ERROR: coroutine is null (id %d) %s\n", co->id, canary_context);
@@ -209,13 +215,13 @@ static void canarycheck(coroutine_t* co)
     #if defined(__x86_64__) && defined(USE_UCONTEXT)
     gregset_t greg;
     void* rsp = *(void**)&(co->ucalt.uc_mcontext.gregs[REG_RSP]);
-    if (rsp)
+    if (rsp && co->has_started)
     {
         if (rsp < co->stack || rsp >= co->stack + co->stacksize)
         {
             printf(
-                "PDCO ERROR: stack pointer out of bounds, is %p but stack is %p to %p\n",
-                rsp, co->stack, co->stack + co->stacksize
+                "PDCO ERROR: stack %d pointer out of bounds, is %p but stack is %p to %p\n",
+                co->id, rsp, co->stack, co->stack + co->stacksize
             );
             if (rsp < co->stack)
             {
@@ -231,12 +237,14 @@ static void canarycheck(coroutine_t* co)
                     co->stacksize, (uintptr_t)(rsp - (co->stack + co->stacksize))
                 );
             }
+            printf("Context: %s\n", canary_context);
             error = 1;
         }
     }
     #endif
     
     assert(!error);
+    canary_context = "";
     #endif
 }
 #endif
@@ -244,6 +252,7 @@ static void canarycheck(coroutine_t* co)
 __attribute__((noinline))
 static void pdco_guard(void)
 {
+    pdco_active->has_started = 1;
     #ifndef NDEBUG
     canary_context = "guard (check prev)";
     canarycheck(pdco_prev);
@@ -280,7 +289,10 @@ static int pdco_resume_(coroutine_t* nc)
     pdco_prev = pdco_active;
     pdco_active = nc;
     
+    #ifndef NDEBUG
+    canary_context = "yield/resume (pre-swap)";
     canarycheck(pdco_active);
+    #endif
     
     #ifdef USE_SETJMP
         asm("");
@@ -292,7 +304,10 @@ static int pdco_resume_(coroutine_t* nc)
         swapcontext(&pdco_prev->ucalt, &nc->ucalt);
     #endif    
     
+    #ifndef NDEBUG
+    canary_context = "yield/resume (post-swap)";
     canarycheck(pdco_active);
+    #endif
     
     prev_id = pdco_prev->id;
     cleanup_if_complete(pdco_prev);
@@ -357,9 +372,12 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
     #endif
     nc->ud = ud;
     nc->stackstart = getstackstart(nc);
+    assert(nc->stackstart >= nc->stack);
+    assert(nc->stackstart <= nc->stack + nc->stacksize);
     nc->status = 1; // running
     nc->fn = fn;
     nc->creator = pdco_active->id;
+    nc->has_started = 0;
     
     #ifndef NDEBUG
     canary_context = "create (middle)";
@@ -388,7 +406,7 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
         }
     #else // USE_UCONTEXT
         nc->ucalt.uc_stack.ss_sp = nc->stackstart; // or should this be nc->stack?
-        nc->ucalt.uc_stack.ss_size = nc->stacksize;
+        nc->ucalt.uc_stack.ss_size = nc->stacksize - 2 * STACKMARGIN;
         nc->ucalt.uc_link = NULL; // we take care of return ourselves.
         makecontext(&nc->ucalt, pdco_guard, 0);
         
