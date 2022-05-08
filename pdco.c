@@ -226,14 +226,14 @@ static void canarycheck(coroutine_t* co)
             if (rsp < co->stack)
             {
                 printf(
-                    "Note: stack size is 0x%lx bytes, and rsp is below the bottom of the stack by 0x%x bytes\n",
+                    "Note: stack size is 0x%lx bytes, and rsp is below the bottom of the stack by 0x%lx bytes\n",
                     co->stacksize, (uintptr_t)(co->stack - rsp)
                 );
             }
             else
             {
                 printf(
-                    "Note: stack size is 0x%lx bytes, and rsp is above the top of the stack by 0x%x bytes\n",
+                    "Note: stack size is 0x%lx bytes, and rsp is above the top of the stack by 0x%lx bytes\n",
                     co->stacksize, (uintptr_t)(rsp - (co->stack + co->stacksize))
                 );
             }
