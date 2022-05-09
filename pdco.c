@@ -139,8 +139,12 @@ static inline void* getstackstart(coroutine_t* co)
     return co->stack + STACKMARGIN;
     #endif
     
+    #if defined(__arm__) || defined(__thumb__)
+    return (co->stack + co->stacksize - STACKMARGIN);
+    #endif
+    
     // !! FIXME !!
-    // return co->stack + co->stacksize / 2;
+    return co->stack + co->stacksize / 2;
     
     return (stack_direction() == 1)
         ? co->stack + STACKMARGIN
@@ -252,6 +256,13 @@ static void canarycheck(coroutine_t* co)
 __attribute__((noinline))
 static void pdco_guard(void)
 {
+    #ifdef USE_SETJMP
+    if (setjmp(pdco_active->jbalt) == 0)
+    {
+        longjmp(pdco_prev->jbalt, 1);
+    }
+    #endif
+    
     pdco_active->has_started = 1;
     #ifndef NDEBUG
     canary_context = "guard (check prev)";
@@ -390,22 +401,37 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
     nc->id = next_coroutine_id++;
     while (getco(nc->id)) nc->id = next_coroutine_id++;
     
+    #ifdef NEWLIB_COMPLETE
+    printf("create thread 0x%x\n", nc->id);
+    #endif
+    
     // attach to linked list
     nc->next = pdco_first;
     pdco_first = nc;
     
+    pdco_prev = pdco_active;
+    pdco_active = nc;
+    
     #ifdef USE_SETJMP
         asm("");
-        if (setjmp(nc->jbalt) != 0)
+        if (setjmp(pdco_active->jbalt) != 0)
         {
             // ---- inside coroutine ----
             
             // set stack pointer
-            SETSP(nc->stackstart);
+            SETSP(pdco_active->stackstart);
             
             // call coroutine
             pdco_guard();
         }
+        
+        // start the alternatenow to get any mysterious stack problems up front.
+        if (setjmp(pdco_prev->jbalt) == 0)
+        {
+            longjmp(pdco_active->jbalt, 1);
+        }
+        
+        printf("thread IDs: %x, %x\n", pdco_active->id, pdco_prev->id);
     #else // USE_UCONTEXT
         nc->ucalt.uc_stack.ss_sp = nc->stackstart; // or should this be nc->stack?
         nc->ucalt.uc_stack.ss_size = nc->stacksize - 2 * STACKMARGIN;
@@ -419,6 +445,8 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
             nc->ucalt.uc_mcontext.fpregs = &nc->ucalt.__fpregs_mem;
         }
     #endif
+    
+    pdco_active = pdco_prev;
     
     #ifndef NDEBUG
     canary_context = "create (end)";
