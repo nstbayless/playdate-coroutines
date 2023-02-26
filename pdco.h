@@ -19,6 +19,8 @@ typedef pdco_handle_t(*pdco_fn_t)(pdco_handle_t caller);
 // Please note that none of these functions are thread-safe.
 // (They are, of course, coroutine-safe.)
 
+// returns handle of current coroutine. In the main coroutine (i.e. thread),
+// returns PDCO_MAIN_ID.
 pdco_handle_t pdco_current(void);
 pdco_handle_t pdco_create(
     pdco_fn_t fn,
