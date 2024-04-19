@@ -444,28 +444,15 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
         printf("thread IDs: %x, %x\n", pdco_active->id, pdco_prev->id);
         #endif
     #else // USE_UCONTEXT
-        #if defined(__APPLE__) && defined(__MACH__)
-        // macOS: context must be initialized by getcontext before makecontext
         if (getcontext(&nc->ucalt) < 0)
         {
             free(nc);
             return -1;
         }
-        #endif
         nc->ucalt.uc_stack.ss_sp = nc->stackstart; // or should this be nc->stack?
         nc->ucalt.uc_stack.ss_size = nc->stacksize - 2 * STACKMARGIN;
         nc->ucalt.uc_link = NULL; // we take care of return ourselves.
         makecontext(&nc->ucalt, pdco_guard, 0);
-        
-        // there's a bug for some reason in some implementations of makecontext
-        // where fpregs is left NULL.
-        // macOS uc_mcontext does not have fpregs (and is a pointer)
-        #if !(defined(__APPLE__) && defined(__MACH__))
-        if (nc->ucalt.uc_mcontext.fpregs == NULL)
-        {
-            nc->ucalt.uc_mcontext.fpregs = &nc->ucalt.__fpregs_mem;
-        }
-        #endif
     #endif
     
     pdco_active = pdco_prev;
