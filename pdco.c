@@ -6,6 +6,11 @@
 #endif
 
 #define _GNU_SOURCE
+#if defined(__APPLE__) && defined(__MACH__)
+    // required for ucontext, must come before including any system headers
+    #define _XOPEN_SOURCE
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -217,8 +222,12 @@ static void canarycheck(coroutine_t* co)
     }
     
     #if defined(__x86_64__) && defined(USE_UCONTEXT)
+    #if defined(__APPLE__) && defined(__MACH__)
+    void* rsp = (co->ucalt.uc_mcontext != NULL) ? (void*)(co->ucalt.uc_mcontext->__ss.__rsp) : NULL;
+    #else
     gregset_t greg;
     void* rsp = *(void**)&(co->ucalt.uc_mcontext.gregs[REG_RSP]);
+    #endif
     if (rsp && co->has_started)
     {
         if (rsp < co->stack || rsp >= co->stack + co->stacksize)
@@ -431,19 +440,19 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
             longjmp(pdco_active->jbalt, 1);
         }
         
+        #if !defined(TARGET_PLAYDATE) || defined(NEWLIB_COMPLETE)
         printf("thread IDs: %x, %x\n", pdco_active->id, pdco_prev->id);
+        #endif
     #else // USE_UCONTEXT
+        if (getcontext(&nc->ucalt) < 0)
+        {
+            free(nc);
+            return -1;
+        }
         nc->ucalt.uc_stack.ss_sp = nc->stackstart; // or should this be nc->stack?
         nc->ucalt.uc_stack.ss_size = nc->stacksize - 2 * STACKMARGIN;
         nc->ucalt.uc_link = NULL; // we take care of return ourselves.
         makecontext(&nc->ucalt, pdco_guard, 0);
-        
-        // there's a bug for some reason in some implementations of makecontext
-        // where fpregs is left NULL.
-        if (nc->ucalt.uc_mcontext.fpregs == NULL)
-        {
-            nc->ucalt.uc_mcontext.fpregs = &nc->ucalt.__fpregs_mem;
-        }
     #endif
     
     pdco_active = pdco_prev;
