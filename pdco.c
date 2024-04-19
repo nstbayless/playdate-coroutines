@@ -431,7 +431,9 @@ pdco_handle_t pdco_create(pdco_fn_t fn, size_t stacksize, void* ud)
             longjmp(pdco_active->jbalt, 1);
         }
         
+        #if !defined(TARGET_PLAYDATE) || defined(NEWLIB_COMPLETE)
         printf("thread IDs: %x, %x\n", pdco_active->id, pdco_prev->id);
+        #endif
     #else // USE_UCONTEXT
         nc->ucalt.uc_stack.ss_sp = nc->stackstart; // or should this be nc->stack?
         nc->ucalt.uc_stack.ss_size = nc->stacksize - 2 * STACKMARGIN;
