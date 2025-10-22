@@ -49,6 +49,10 @@ void** pdco_ud(pdco_handle_t)
 
 Retrieves a reference to the user-defined `void*` pointer specific to the given thread. **Please carefully notice** that `void**` is returned, *not* `void*`; this allows that the `void* ud` value may be assigned to.
 
+## Limitations
+
+- For some reason, invoking filesystem operations (e.g. playdate->file->write) from any thread other than the main thread can cause errors on device.
+
 ## Missing Functionality
 
 ### Stack Usage
