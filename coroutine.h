@@ -33,6 +33,16 @@ void pdco_yield(pdco_handle_t h);
 // gets user-defined local value
 void** pdco_ud(pdco_handle_t h);
 
+// returns 1 if the given coroutine is the current execution context.
+int pdco_is_active(pdco_handle_t h);
+
+// returns the saved stack pointer of the given coroutine.
+// if the coroutine is active or does not exist, returns 0.
+void* pdco_get_stack_ptr(pdco_handle_t h);
+
+typedef struct PlaydateAPI PlaydateAPI;
+void detour_system_operations_to_tcm(PlaydateAPI* pd);
+
 #ifndef PDCO_NO_KEYWORDS
 // Define keyword aliases
 

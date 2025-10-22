@@ -5,6 +5,8 @@
     );
 #endif
 
+#include "pd_api.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,6 +54,7 @@ typedef struct coroutine_t
     void* ud;
     void* stackstart;
     void* stack; // stack followed by user-defined data
+    void* stack_ptr;
     
     #ifdef USE_SETJMP
     jmp_buf jbalt;
@@ -154,6 +157,8 @@ static int pdco_resume_(coroutine_t* nc)
     if (nc == pdco_active) return -1;
     pdco_prev = pdco_active;
     pdco_active = nc;
+    
+    pdco_prev->stack_ptr = __builtin_frame_address(0) + stack_direction()*192; // reasonable-seeming safety margin
     
     #ifdef USE_SETJMP
         asm("");
@@ -272,3 +277,128 @@ int pdco_exists(pdco_handle_t h)
         return 0;
     }
 }
+
+int pdco_is_active(pdco_handle_t h)
+{
+    coroutine_t* c = getco(h);
+    if (c != NULL)
+    {
+        return pdco_active == c;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+void* pdco_get_stack_ptr(pdco_handle_t h)
+{
+    coroutine_t* c = getco(h);
+    if (c != NULL)
+    {
+        if (pdco_active == c) return 0;
+        
+        return c->stack_ptr;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+#ifdef TARGET_SIMULATOR
+void detour_system_operations_to_tcm(PlaydateAPI* pd)
+{ }
+#else
+
+struct Args
+{
+    uintptr_t v0, v1, v2, v3;
+};
+
+typedef uintptr_t(*fn_t)(uintptr_t a0, uintptr_t a1, uintptr_t a2, uintptr_t a3);
+
+uintptr_t RunFnWithArgs(fn_t fn, struct Args* a)
+{
+    return fn(a->v0, a->v1, a->v2, a->v3);
+}
+
+static __attribute__((naked)) uintptr_t RunWithStack(void* f, void* a, void* b) {
+    __asm__ volatile(
+        "push {r4, lr}\n"
+        "mov  r4, sp\n"        // save current stack pointer
+        "mov  sp, r2\n"        // switch to new stack (b)
+        "bl   RunFnWithArgs\n" // call RunFnWithArgs(f, a)
+        "mov  sp, r4\n"        // restore original stack pointer
+        "pop  {r4, lr}\n"
+        "bx   lr\n"            // return
+    );
+}
+
+static void* get_tcm_stack(void)
+{
+    return pdco_get_stack_ptr(PDCO_MAIN_ID);
+}
+
+static int is_stack_in_tcm(void)
+{
+    uintptr_t s = (uintptr_t)__builtin_frame_address(0);
+    return ((s & 0xFF000000) == 0x20000000);
+}
+
+#define DEFINE_DETOUR(ns, name) \
+void* org__##ns_##name; \
+uintptr_t detour__##ns_##name(uintptr_t r0, uintptr_t r1, uintptr_t r2, uintptr_t r3) \
+{ \
+    struct Args a = {r0, r1, r2, r3}; \
+    if (is_stack_in_tcm()) return RunFnWithArgs(org__##ns_##name, &a); \
+    return RunWithStack(org__##ns_##name, &a, get_tcm_stack()); \
+}
+
+DEFINE_DETOUR(file, geterr)
+// TODO: listfiles
+DEFINE_DETOUR(file, stat)
+DEFINE_DETOUR(file, mkdir)
+DEFINE_DETOUR(file, unlink)
+DEFINE_DETOUR(file, rename)
+DEFINE_DETOUR(file, open)
+DEFINE_DETOUR(file, close)
+DEFINE_DETOUR(file, read)
+DEFINE_DETOUR(file, write)
+DEFINE_DETOUR(file, flush)
+DEFINE_DETOUR(file, tell)
+DEFINE_DETOUR(graphics, loadBitmap)
+DEFINE_DETOUR(graphics, loadIntoBitmap)
+DEFINE_DETOUR(graphics, loadBitmapTable)
+DEFINE_DETOUR(graphics, loadIntoBitmapTable)
+DEFINE_DETOUR(graphics, loadFont)
+
+#define APPLY_DETOUR(ns, name) \
+    org__##ns_##name = pd->ns->name; \
+    *(void**)&pd->ns->name = detour__##ns_##name;
+
+void detour_system_operations_to_tcm(PlaydateAPI* pd)
+{
+    static bool enabled = false;
+    if (enabled) return;
+    enabled = true;
+
+    APPLY_DETOUR(file, geterr)
+    // TODO: listfiles
+    APPLY_DETOUR(file, stat)
+    APPLY_DETOUR(file, mkdir)
+    APPLY_DETOUR(file, unlink)
+    APPLY_DETOUR(file, rename)
+    APPLY_DETOUR(file, open)
+    APPLY_DETOUR(file, close)
+    APPLY_DETOUR(file, read)
+    APPLY_DETOUR(file, write)
+    APPLY_DETOUR(file, flush)
+    APPLY_DETOUR(file, tell)
+    APPLY_DETOUR(graphics, loadBitmap)
+    APPLY_DETOUR(graphics, loadIntoBitmap)
+    APPLY_DETOUR(graphics, loadBitmapTable)
+    APPLY_DETOUR(graphics, loadIntoBitmapTable)
+    APPLY_DETOUR(graphics, loadFont)
+}
+#endif
