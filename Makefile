@@ -25,7 +25,7 @@ $(shell echo 'function playdate.update() end' > Source/main.lua)
 SRC += coroutine.c main.c
 
 # List all user directories here
-UINCDIR += $(SELF_DIR)/mini3d-plus
+UINCDIR +=
 
 # List all user C define here, like -D_DEBUG=1
 UDEFS += -DPLAYDATE=1

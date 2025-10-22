@@ -38,11 +38,11 @@ co_thread test_coroutine(co_thread caller)
     return caller;
 }
 
-#if defined(PLAYDATE) || defined(TARGET_PLAYDATE)
+#if defined(PLAYDATE) || defined(TARGET_SIMULATOR) || defined(TARGET_DEVICE)
 #define printfln playdate->system->logToConsole
-
 int eventHandler(PlaydateAPI* playdate, PDSystemEvent event, uint32_t arg)
 {
+    detour_system_operations_to_tcm(playdate);
     pd = playdate;
     printfln("event %d", event);
     if (event != kEventInitLua) return 0;
@@ -61,8 +61,8 @@ int main()
     printfln("Completed. The final value of a is %d", a);
     if (a != 3) return 1;
     
-    co_thread t2 = create_thread(file_io_test, 4096, NULL);
-    yield(t2);
+    //co_thread t2 = create_thread(file_io_test, 4096, NULL);
+    //yield(t2);
     
     printfln("Complete. %d", 0);
     
